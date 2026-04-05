@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmniDataFlow — AIGC 数据服务平台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0c14; --surf:#111520; --surf2:#181d2e; --border:#1e2540;
+  --accent:#4f8cff; --accent2:#7c3aed; --green:#10b981;
+  --yellow:#f59e0b; --red:#ef4444; --pink:#ec4899;
+  --text:#e2e8f0; --text2:#8892a4; --text3:#4a5568;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+
+/* ── CURSOR ── */
+#cursor{position:fixed;width:18px;height:18px;border-radius:50%;background:rgba(79,140,255,.9);box-shadow:0 0 16px 4px rgba(79,140,255,.6);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .15s,height .15s,background .2s;mix-blend-mode:screen}
+#cursor.clicking{width:28px;height:28px;background:rgba(124,58,237,.9);box-shadow:0 0 24px 8px rgba(124,58,237,.6)}
+#cursor-label{position:fixed;z-index:9998;pointer-events:none;background:rgba(10,12,20,.88);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;font-family:'Space Mono',monospace;color:var(--accent);white-space:nowrap;transform:translate(14px,-50%);opacity:0;transition:opacity .2s}
+
+/* ── TOPBAR ── */
+#topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:52px;background:rgba(10,12,20,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 20px;gap:0}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:#fff;display:flex;align-items:center;gap:8px;margin-right:32px;white-space:nowrap}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.nav-tabs{display:flex;gap:2px;flex:1;overflow:hidden}
+.nav-tab{padding:6px 12px;border-radius:6px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .2s;font-weight:500;white-space:nowrap}
+.nav-tab:hover,.nav-tab.active{background:var(--surf2);color:var(--text)}
+.nav-tab.active{color:var(--accent)}
+.user-info{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2);flex-shrink:0}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh;padding-top:52px}
+#sidebar{width:210px;background:var(--surf);border-right:1px solid var(--border);padding:16px 10px;flex-shrink:0;overflow-y:auto}
+#main{flex:1;overflow-y:auto;overflow-x:hidden}
+.screen{display:none;padding:20px;min-height:calc(100vh - 52px)}
+.screen.active{display:block}
+
+/* ── SIDEBAR ── */
+.sb-section{margin-bottom:20px}
+.sb-title{font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .2s;margin-bottom:1px;position:relative}
+.sb-item:hover,.sb-item.active{background:var(--surf2);color:var(--text)}
+.sb-item.active{color:var(--accent)}
+.sb-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 6px;font-family:'Space Mono',monospace}
+.sb-badge.g{background:var(--green)}
+.sb-badge.y{background:var(--yellow)}
+
+/* ── COMMON ── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-title{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;color:#fff}
+.page-sub{font-size:12px;color:var(--text2);margin-top:3px}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.card-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;font-family:'Space Mono',monospace}
+.btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surf2);color:var(--text2);font-family:'Noto Sans SC',sans-serif;transition:all .2s;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-sm{padding:5px 10px;font-size:11px}
+.chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;font-family:'Space Mono',monospace}
+.chip-blue{background:rgba(79,140,255,.15);color:var(--accent);border:1px solid rgba(79,140,255,.3)}
+.chip-green{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.chip-yellow{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.chip-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.chip-purple{background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;font-family:'Space Mono',monospace}
+.form-input{width:100%;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;font-family:'Noto Sans SC',sans-serif;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--accent)}
+textarea.form-input{resize:none}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th{text-align:left;padding:8px 10px;color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.table td{padding:9px 10px;border-bottom:1px solid rgba(30,37,64,.5);vertical-align:middle}
+.table tr:last-child td{border-bottom:none}
+.prog-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;border-radius:2px;transition:width .5s}
+.stat-card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:8px}
+.stat-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#fff}
+.stat-delta{font-size:11px;color:var(--green);margin-top:4px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+
+/* ── TOAST ── */
+.toast{position:fixed;top:64px;right:20px;z-index:500;background:rgba(10,12,20,.96);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:translateX(120%);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.toast.show{transform:translateX(0)}
+.toast-icon{font-size:16px}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:24px;width:440px;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:16px;color:#fff}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+/* ── AUTOPLAY BAR ── */
+#autoplay-bar{position:fixed;bottom:20px;left:20px;z-index:300;background:rgba(10,12,20,.96);border:1px solid var(--border);border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.5);white-space:nowrap}
+#play-btn{padding:7px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:opacity .2s}
+#play-btn:hover{opacity:.85}
+#play-btn:disabled{opacity:.6;cursor:not-allowed}
+#step-label{font-family:'Space Mono',monospace;color:var(--accent);font-size:10px;min-width:220px}
+.prog-bar-thin{width:100px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill-thin{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .3s}
+
+/* ── ROLE BANNER ── */
+#role-banner{position:fixed;top:62px;left:50%;transform:translateX(-50%) translateY(-30px);z-index:600;background:linear-gradient(135deg,rgba(10,12,20,.98),rgba(20,28,50,.98));border:1px solid var(--accent);border-radius:14px;padding:14px 28px;display:flex;align-items:center;gap:16px;font-size:14px;box-shadow:0 8px 32px rgba(79,140,255,.25);opacity:0;pointer-events:none;transition:all .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap}
+.rb-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0}
+.rb-label{font-size:10px;color:var(--text2);margin-bottom:3px;font-family:'Space Mono',monospace;letter-spacing:1px}
+.rb-name{color:#fff;font-weight:600}
+
+/* ── WATERMARK ── */
+#watermark{position:fixed;bottom:66px;right:22px;z-index:150;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:rgba(79,140,255,.42);letter-spacing:.5px;pointer-events:none;user-select:none;text-shadow:0 0 10px rgba(79,140,255,.18)}
+
+/* ── ANNOTATION CANVAS ── */
+.ann-canvas{position:relative;background:linear-gradient(160deg,#1a2340 0%,#0d1520 100%);border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.ann-canvas svg{width:100%;height:100%}
+.bbox{position:absolute;border:2px solid var(--accent);border-radius:2px;opacity:0;transition:opacity .3s}
+.bbox-label{position:absolute;top:-20px;left:0;background:var(--accent);color:#fff;font-size:9px;font-family:'Space Mono',monospace;padding:1px 5px;border-radius:3px;white-space:nowrap}
+
+/* ── GEN STEP TRACK ── */
+.step-track{display:flex;align-items:center;margin-bottom:20px}
+.step-node{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);background:var(--surf);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;flex-shrink:0;transition:all .3s}
+.step-node.active{border-color:var(--accent);color:var(--accent);background:rgba(79,140,255,.1)}
+.step-node.done{border-color:var(--green);color:var(--green);background:rgba(16,185,129,.1)}
+.step-line{flex:1;height:2px;background:var(--border);transition:background .3s}
+.step-line.done{background:var(--green)}
+.step-lbl{font-size:10px;color:var(--text3);margin-top:4px;text-align:center;white-space:nowrap}
+
+/* ── AGENT CARDS ── */
+.agent-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);transition:all .3s;margin-bottom:6px}
+.agent-card.running{border-color:var(--accent);background:rgba(79,140,255,.06)}
+.agent-card.done{border-color:var(--green);background:rgba(16,185,129,.06)}
+.agent-icon{font-size:18px;flex-shrink:0}
+.agent-name{font-size:12px;font-weight:600;color:#fff}
+.agent-status{font-size:11px;color:var(--text2);margin-top:2px}
+.spinner{width:14px;height:14px;border:2px solid rgba(79,140,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-left:auto;flex-shrink:0}
+.check{margin-left:auto;color:var(--green);font-size:14px;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── POST CARD ── */
+.post-img{border-radius:8px;overflow:hidden;margin-bottom:10px;position:relative;height:180px}
+.post-caption{font-size:13px;line-height:1.7;color:var(--text);margin-bottom:8px;min-height:20px}
+.post-tags{display:flex;flex-wrap:wrap;gap:6px}
+.post-tag{font-size:11px;color:var(--accent);background:rgba(79,140,255,.1);padding:2px 8px;border-radius:10px}
+.real-badge{position:absolute;bottom:8px;left:8px;background:rgba(16,185,129,.9);color:#fff;font-size:10px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:5px}
+.fake-badge{position:absolute;bottom:8px;left:8px;background:rgba(239,68,68,.9);color:#fff;font-size:10px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:5px}
+
+/* ── QC ── */
+.qc-dim{margin-bottom:12px}
+.qc-dim-title{font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;justify-content:space-between}
+.score-bar-bg{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.score-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+
+/* ── TASK HALL CARD ── */
+.th-card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+.th-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 20px rgba(79,140,255,.12)}
+.th-top-bar{position:absolute;top:0;left:0;right:0;height:3px}
+
+/* ── PROMPT AREA ── */
+.prompt-area{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7;color:var(--text);min-height:52px}
+.typing-cursor{display:inline-block;width:2px;height:14px;background:var(--accent);margin-left:1px;vertical-align:text-bottom;animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ── SCORE CARD ── */
+.score-total{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;text-align:center;line-height:1}
+.score-label{font-size:11px;color:var(--text2);text-align:center;margin-top:4px}
+
+/* ── PERSON CARD ── */
+.person-card{background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .2s;margin-bottom:6px}
+.person-card.selected{border-color:var(--green);background:rgba(16,185,129,.06)}
+.person-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0}
+
+/* ── GEN LAYOUT ── */
+.gen-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── HIGHLIGHT RING ── */
+.highlight-ring{position:fixed;border:2px solid var(--accent);border-radius:10px;pointer-events:none;z-index:8000;opacity:0;transition:opacity .3s;box-shadow:0 0 0 4px rgba(79,140,255,.12)}
+
+/* ── STEP GRID ── */
+.step-grid{display:grid;grid-template-columns:auto auto;align-items:center;gap:0}
+.step-lbl-row{display:flex;justify-content:space-around;font-size:9px;color:var(--text3);margin-top:4px}
+
+/* ── CHART BARS ── */
+.chart-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar-body{width:28px;background:var(--accent);border-radius:3px 3px 0 0;transition:height .5s}
+.bar-label{font-size:9px;color:var(--text3);font-family:'Space Mono',monospace}
+
+/* ── T2I / I2I annotation specific ── */
+.sop-tag{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;margin:2px;font-family:'Space Mono',monospace}
+.annotation-token{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:16px;font-size:11px;margin:3px;cursor:default;transition:all .2s}
+.annotation-token.highlight{transform:scale(1.08);box-shadow:0 0 12px rgba(79,140,255,.3)}
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-label"></div>
+
+<!-- HIGHLIGHT RING -->
+<div class="highlight-ring" id="highlight-ring"></div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toast-icon">✅</span>
+  <span id="toast-msg">操作成功</span>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">创建项目</div>
+    <div id="modal-body">
+      <div class="form-group"><label class="form-label">项目名称</label><input class="form-input" id="m-name" placeholder="请输入项目名称"></div>
+      <div class="form-group"><label class="form-label">标注类型</label><input class="form-input" id="m-type" placeholder="图片 / 文本 / 语音 / 视频"></div>
+      <div class="form-group"><label class="form-label">任务数量</label><input class="form-input" id="m-count" placeholder="500"></div>
+      <div class="form-group"><label class="form-label">客户关键词（内容生成任务）</label><input class="form-input" id="m-kw" placeholder="可选，如：品牌调性、视觉风格"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="modal-cancel" onclick="document.getElementById('modal').classList.remove('show')">取消</button>
+      <button class="btn btn-primary" id="modal-confirm">确认创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo"><div class="logo-dot"></div>OmniDataFlow</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-screen="dashboard">📊 工作台</div>
+    <div class="nav-tab" data-screen="taskhall">🏛️ 任务大厅</div>
+    <div class="nav-tab" data-screen="annotation">🏷️ 数据标注</div>
+    <div class="nav-tab" data-screen="generation">✨ 内容生成</div>
+    <div class="nav-tab" data-screen="qc">🔍 质检审核</div>
+    <div class="nav-tab" data-screen="stats">📈 统计</div>
+  </div>
+  <div class="user-info">
+    <span id="user-role-badge" class="chip chip-blue">项目经理</span>
+    <span id="user-name">王建国</span>
+    <div class="avatar" id="user-avatar">王</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-section">
+      <div class="sb-title">项目管理</div>
+      <div class="sb-item active" id="sb-dashboard"><span class="sb-icon">🏠</span>总览</div>
+      <div class="sb-item" id="sb-projects"><span class="sb-icon">📁</span>项目列表<span class="sb-badge">8</span></div>
+      <div class="sb-item" id="sb-task-create"><span class="sb-icon">➕</span>创建任务</div>
+      <div class="sb-item" id="sb-task-dispatch"><span class="sb-icon">📡</span>任务分发<span class="sb-badge y">23</span></div>
+      <div class="sb-item" id="sb-sop"><span class="sb-icon">⚡</span>48h SOP实验室</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-title">我的工作</div>
+      <div class="sb-item" id="sb-taskhall"><span class="sb-icon">🏛️</span>任务大厅<span class="sb-badge g">7</span></div>
+      <div class="sb-item" id="sb-annotation"><span class="sb-icon">🏷️</span>标注工作台</div>
+      <div class="sb-item" id="sb-generation"><span class="sb-icon">✨</span>内容创作</div>
+      <div class="sb-item" id="sb-qc"><span class="sb-icon">🔍</span>质检工作台<span class="sb-badge g">12</span></div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-title">数据合规</div>
+      <div class="sb-item"><span class="sb-icon">🛡️</span>脱敏管理</div>
+      <div class="sb-item"><span class="sb-icon">📜</span>审计日志</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">📊 总览工作台</div><div class="page-sub">OneTool · OneTeam — 让1000人干出3000人的活</div></div>
+        <button class="btn btn-primary" id="btn-create-project">+ 创建项目</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">今日合格标注件数</div><div class="stat-value">2,847</div><div class="stat-delta">↑ +23% 较昨日</div></div>
+        <div class="stat-card"><div class="stat-label">今日合格 Post 数</div><div class="stat-value">384</div><div class="stat-delta">↑ +31% 较昨日</div></div>
+        <div class="stat-card"><div class="stat-label">AI 一眼假率</div><div class="stat-value" style="color:var(--yellow)">18%</div><div class="stat-delta" style="color:var(--green)">↓ 目标 &lt;10%</div></div>
+        <div class="stat-card"><div class="stat-label">活跃用户</div><div class="stat-value">3,241</div><div class="stat-delta">↑ +8%</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-title">📁 进行中的项目</div>
+          <table class="table">
+            <thead><tr><th>项目名称</th><th>类型</th><th>进度</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>客户A — 城市人物图像标注</td><td><span class="chip chip-blue">图片</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog-bar" style="width:80px"><div class="prog-fill" style="width:78%;background:var(--accent)"></div></div><span style="font-size:11px;color:var(--text2)">78%</span></div></td><td><span class="chip chip-green">进行中</span></td></tr>
+              <tr><td>社媒内容生成-B</td><td><span class="chip chip-purple">内容</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog-bar" style="width:80px"><div class="prog-fill" style="width:45%;background:var(--accent2)"></div></div><span style="font-size:11px;color:var(--text2)">45%</span></div></td><td><span class="chip chip-yellow">待质检</span></td></tr>
+              <tr><td>T2I Prompt标注-复古风</td><td><span class="chip chip-blue">文本</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog-bar" style="width:80px"><div class="prog-fill" style="width:62%;background:var(--green)"></div></div><span style="font-size:11px;color:var(--text2)">62%</span></div></td><td><span class="chip chip-green">进行中</span></td></tr>
+              <tr><td>I2I 风格迁移标注</td><td><span class="chip chip-blue">视频</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog-bar" style="width:80px"><div class="prog-fill" style="width:92%;background:var(--green)"></div></div><span style="font-size:11px;color:var(--text2)">92%</span></div></td><td><span class="chip chip-green">即将完成</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">🏆 标注员排行榜（今日）</div>
+          <table class="table">
+            <thead><tr><th>#</th><th>姓名</th><th>合格件数</th><th>准确率</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--yellow);font-weight:700">01</td><td>李晓明</td><td style="color:var(--green);font-weight:600">312</td><td><span class="chip chip-green">98.2%</span></td></tr>
+              <tr><td style="color:var(--text3)">02</td><td>王红燕</td><td style="color:var(--green);font-weight:600">287</td><td><span class="chip chip-green">96.5%</span></td></tr>
+              <tr><td style="color:var(--text3)">03</td><td>陈建军</td><td>261</td><td><span class="chip chip-yellow">94.1%</span></td></tr>
+              <tr><td style="color:var(--text3)">04</td><td>张海燕</td><td>234</td><td><span class="chip chip-yellow">93.8%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SOP LAB ══ -->
+    <div class="screen" id="screen-sop">
+      <div class="page-header">
+        <div><div class="page-title">⚡ 48h SOP 快速实验室</div><div class="page-sub">针对新业务快速建立标注标准，支持 Midjourney/SD 参考图导入</div></div>
+        <button class="btn btn-primary" id="btn-launch-sop">🚀 发布标准</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="card">
+            <div class="card-title">📋 标注标准配置</div>
+            <div class="form-group"><label class="form-label">业务类型</label><input class="form-input" id="sop-biz" value="" placeholder="如：Sora视频标注 / 莫兰迪风格图片"></div>
+            <div class="form-group"><label class="form-label">参考图来源</label>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <div id="sop-mj-btn" style="padding:7px 12px;border-radius:7px;font-size:11px;background:rgba(79,140,255,.12);border:1px solid rgba(79,140,255,.3);color:var(--accent);cursor:pointer">Midjourney</div>
+                <div style="padding:7px 12px;border-radius:7px;font-size:11px;background:var(--surf2);border:1px solid var(--border);color:var(--text2);cursor:pointer">Stable Diffusion</div>
+                <div style="padding:7px 12px;border-radius:7px;font-size:11px;background:var(--surf2);border:1px solid var(--border);color:var(--text2);cursor:pointer">自定义上传</div>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Prompt 模板</label><textarea class="form-input" id="sop-prompt" style="height:80px" placeholder="导入或手写标注 Prompt 模板..."></textarea></div>
+            <div class="form-group"><label class="form-label">风格分解标签</label>
+              <div id="sop-tags" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+                <span class="sop-tag" style="background:rgba(79,140,255,.12);color:var(--accent);border:1px solid rgba(79,140,255,.3)">胶片质感</span>
+                <span class="sop-tag" style="background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3)">暖黄滤镜</span>
+                <span class="sop-tag" style="background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.3)">颗粒感</span>
+                <span class="sop-tag" style="background:rgba(124,58,237,.12);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">+ 添加标签</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🧪 小规模测试任务</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div id="sop-cnt" style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent)">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">测试任务数</div></div>
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div id="sop-time" style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--green)">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">预计完成(h)</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📖 标准预览 — 精细化拆解</div>
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-family:'Space Mono',monospace">CLIENT INPUT</div>
+            <div style="background:var(--surf2);border-radius:8px;padding:12px;font-size:13px;color:var(--text2);font-style:italic" id="sop-input-display">"复古风"</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div style="flex:1;height:1px;background:var(--border)"></div><span style="font-size:11px;color:var(--accent);font-family:'Space Mono',monospace">SOP 拆解 ↓</span><div style="flex:1;height:1px;background:var(--border)"></div></div>
+          <div id="sop-breakdown">
+            <div class="annotation-token" style="background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.25);color:var(--accent)">🎞️ 胶片质感 <span style="font-size:9px;color:var(--text3);margin-left:4px">grain=0.35</span></div>
+            <div class="annotation-token" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--yellow)">🌅 暖黄滤镜 <span style="font-size:9px;color:var(--text3);margin-left:4px">temp=+800K</span></div>
+            <div class="annotation-token" style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:var(--green)">📷 颗粒感 <span style="font-size:9px;color:var(--text3);margin-left:4px">ISO=3200</span></div>
+            <div class="annotation-token" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);color:#a78bfa">📺 90年代低像素 <span style="font-size:9px;color:var(--text3);margin-left:4px">res=480p</span></div>
+            <div class="annotation-token" style="background:rgba(236,72,153,.1);border:1px solid rgba(236,72,153,.25);color:var(--pink)">🎨 低饱和度 <span style="font-size:9px;color:var(--text3);margin-left:4px">sat=-30%</span></div>
+          </div>
+          <div style="margin-top:16px;padding:10px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;font-size:11px;color:var(--green)">
+            ✅ 品牌调性匹配度目标：100% · MCN 返工降低 &gt;70%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TASK CREATE ══ -->
+    <div class="screen" id="screen-taskcreate">
+      <div class="page-header">
+        <div><div class="page-title">➕ 创建任务</div><div class="page-sub">为项目批量创建标注任务或内容生成任务</div></div>
+        <button class="btn btn-primary" id="btn-save-tasks">💾 保存并发布</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="card" id="task-create-form">
+            <div class="card-title">⚙️ 任务配置</div>
+            <div class="form-group"><label class="form-label">所属项目</label><input class="form-input" id="tc-project" value="客户A — 城市人物图像标注" readonly style="color:var(--accent)"></div>
+            <div class="form-group">
+              <label class="form-label">任务类型</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <div id="tc-type-ann" style="padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent)">🏷️ 标注任务</div>
+                <div id="tc-type-gen" style="padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;background:var(--surf2);color:var(--text2);border:1px solid var(--border)">✨ 内容生成任务</div>
+                <div id="tc-type-t2i" style="padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;background:var(--surf2);color:var(--text2);border:1px solid var(--border)">🖼️ T2I Prompt标注</div>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">数据集</label><input class="form-input" id="tc-dataset" placeholder="选择或上传数据集"></div>
+            <div class="form-group"><label class="form-label">任务数量</label><input class="form-input" id="tc-count" placeholder="例：200"></div>
+            <div class="form-group"><label class="form-label">截止日期</label><input class="form-input" id="tc-deadline" placeholder="2026-04-01"></div>
+            <div class="form-group"><label class="form-label">标注规则说明</label><textarea class="form-input" id="tc-rule" style="height:60px" placeholder="请框选图像中所有行人目标..."></textarea></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">👁️ 任务预览</div>
+            <div id="task-preview-list"><div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">填写左侧配置后自动生成任务列表</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">📊 批次规划</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent)" id="tc-p-count">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">任务总数</div></div>
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--green)" id="tc-p-days">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">预计完成(天)</div></div>
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--yellow)" id="tc-p-people">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">推荐人数</div></div>
+              <div style="background:var(--surf2);border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;font-family:'Syne',sans-serif;color:var(--accent2)" id="tc-p-batch">—</div><div style="font-size:11px;color:var(--text2);margin-top:4px">每批任务数</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TASK DISPATCH ══ -->
+    <div class="screen" id="screen-taskdispatch">
+      <div class="page-header">
+        <div><div class="page-title">📡 任务分发中心</div><div class="page-sub">将任务分配给合适的标注员 / 创作人员（依据历史准确率智能推荐）</div></div>
+        <button class="btn btn-primary" id="btn-confirm-dispatch">🚀 确认分发</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:16px">
+        <div class="card">
+          <div class="card-title">📋 待分发任务列表</div>
+          <table class="table" id="dispatch-table">
+            <thead><tr><th>任务ID</th><th>项目</th><th>类型</th><th>数量</th><th>截止</th><th>状态</th><th>分配给</th></tr></thead>
+            <tbody id="dispatch-tbody">
+              <tr id="drow-1"><td style="font-family:'Space Mono',monospace;font-size:11px">#ANN-2401</td><td>客户A图像标注</td><td><span class="chip chip-blue">图片</span></td><td>200条</td><td style="font-size:11px;color:var(--text2)">04-01</td><td><span class="chip chip-yellow">待分发</span></td><td id="assign-1" style="color:var(--text3);font-size:12px">未分配</td></tr>
+              <tr id="drow-2"><td style="font-family:'Space Mono',monospace;font-size:11px">#ANN-2402</td><td>客户A图像标注</td><td><span class="chip chip-blue">图片</span></td><td>200条</td><td style="font-size:11px;color:var(--text2)">04-01</td><td><span class="chip chip-yellow">待分发</span></td><td id="assign-2" style="color:var(--text3);font-size:12px">未分配</td></tr>
+              <tr id="drow-3"><td style="font-family:'Space Mono',monospace;font-size:11px">#T2I-0301</td><td>T2I Prompt标注</td><td><span class="chip chip-blue">文本</span></td><td>150条</td><td style="font-size:11px;color:var(--text2)">04-03</td><td><span class="chip chip-yellow">待分发</span></td><td id="assign-3" style="color:var(--text3);font-size:12px">未分配</td></tr>
+              <tr id="drow-4"><td style="font-family:'Space Mono',monospace;font-size:11px">#GEN-0801</td><td>社媒内容生成-B</td><td><span class="chip chip-purple">内容</span></td><td>50条</td><td style="font-size:11px;color:var(--text2)">04-05</td><td><span class="chip chip-yellow">待分发</span></td><td id="assign-4" style="color:var(--text3);font-size:12px">未分配</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">👥 人员列表</div>
+            <div id="people-list">
+              <div class="person-card" id="person-lxm"><div class="person-avatar" style="background:linear-gradient(135deg,var(--green),#059669)">李</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">李晓明</div><div style="font-size:11px;color:var(--text2)">标注员 · 准确率 98.2%</div></div><div style="text-align:right"><div style="font-size:11px;color:var(--green)">空闲</div><div style="font-size:10px;color:var(--text3)">负载 2/5</div></div></div>
+              <div class="person-card" id="person-why"><div class="person-avatar" style="background:linear-gradient(135deg,var(--accent),#3b82f6)">王</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">王红燕</div><div style="font-size:11px;color:var(--text2)">标注员 · 准确率 96.5%</div></div><div style="text-align:right"><div style="font-size:11px;color:var(--green)">空闲</div><div style="font-size:10px;color:var(--text3)">负载 1/5</div></div></div>
+              <div class="person-card" id="person-t2i"><div class="person-avatar" style="background:linear-gradient(135deg,var(--yellow),#d97706)">赵</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">赵小文</div><div style="font-size:11px;color:var(--text2)">标注员 · T2I专项</div></div><div style="text-align:right"><div style="font-size:11px;color:var(--green)">空闲</div><div style="font-size:10px;color:var(--text3)">负载 0/5</div></div></div>
+              <div class="person-card" id="person-zhy"><div class="person-avatar" style="background:linear-gradient(135deg,var(--accent2),#9333ea)">张</div><div style="flex:1"><div style="font-size:13px;font-weight:600;color:#fff">张海燕</div><div style="font-size:11px;color:var(--text2)">创作员 · 通过率 87%</div></div><div style="text-align:right"><div style="font-size:11px;color:var(--green)">空闲</div><div style="font-size:10px;color:var(--text3)">负载 1/4</div></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">📊 分发预览</div>
+            <div id="dispatch-preview" style="font-size:12px;color:var(--text3);text-align:center;padding:12px">点击任务和人员进行匹配</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TASK HALL ══ -->
+    <div class="screen" id="screen-taskhall">
+      <div class="page-header">
+        <div><div class="page-title">🏛️ 任务大厅</div><div class="page-sub" id="th-sub">浏览并领取适合你的任务</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="th-filter-all" style="color:var(--accent);border-color:var(--accent)">全部</button>
+          <button class="btn btn-sm" id="th-filter-ann">🏷️ 标注</button>
+          <button class="btn btn-sm" id="th-filter-gen">✨ 创作</button>
+        </div>
+      </div>
+      <!-- My tasks -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">📌 我的进行中任务</div>
+        <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px">
+          <div style="min-width:200px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--accent)">#ANN-2398</span><span class="chip chip-green" style="font-size:10px">进行中</span></div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">客户A图像标注</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">图片目标检测 · 200条</div>
+            <div class="prog-bar"><div class="prog-fill" style="width:68%;background:var(--accent)"></div></div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px">136/200 完成</div>
+          </div>
+          <div style="min-width:200px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--accent2)">#GEN-0799</span><span class="chip chip-yellow" style="font-size:10px">待质检</span></div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">社媒内容生成-B</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">内容生成 · 50条</div>
+            <div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div>
+            <div style="font-size:10px;color:var(--green);margin-top:4px">50/50 已完成</div>
+          </div>
+        </div>
+      </div>
+      <!-- Available tasks grid -->
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;font-family:'Space Mono',monospace">🆕 可领取任务</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px" id="available-tasks">
+        <div class="th-card" id="thcard-1">
+          <div class="th-top-bar" style="background:linear-gradient(90deg,var(--accent),var(--accent2))"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-blue" style="font-size:10px">🏷️ 图片标注</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#ANN-2401</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">城市人物图像标注</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">框选行人目标，标记遮挡情况</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 200条</span><span>⏰ 04-01</span><span>★★☆</span></div>
+          <button class="btn btn-primary" id="th-claim-1" style="width:100%;font-size:12px">领取任务</button>
+        </div>
+        <div class="th-card" id="thcard-2">
+          <div class="th-top-bar" style="background:linear-gradient(90deg,var(--yellow),var(--green))"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-blue" style="font-size:10px">🖼️ T2I Prompt标注</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#T2I-0301</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">复古风提示词精细化标注</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">将"复古风"拆解为胶片感/颗粒度等Token</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 150条</span><span>⏰ 04-03</span><span>★★★</span></div>
+          <button class="btn btn-primary" id="th-claim-2" style="width:100%;font-size:12px">领取任务</button>
+        </div>
+        <div class="th-card" id="thcard-3">
+          <div class="th-top-bar" style="background:linear-gradient(90deg,var(--accent2),var(--pink))"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-purple" style="font-size:10px">✨ 内容生成</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#GEN-0801</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">社媒Post — 生活方式类</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">咖啡/下午茶品牌社媒内容创作</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 50条</span><span>⏰ 04-05</span><span>★★★</span></div>
+          <button class="btn btn-primary" id="th-claim-3" style="width:100%;font-size:12px;background:linear-gradient(135deg,var(--accent2),#9333ea)">领取任务</button>
+        </div>
+        <div class="th-card" id="thcard-4">
+          <div class="th-top-bar" style="background:linear-gradient(90deg,var(--green),var(--accent))"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-blue" style="font-size:10px">🎵 语音标注</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#ANN-2403</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">语音情感分类标注</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">为音频片段标注情感标签（正/中/负）</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 300条</span><span>⏰ 04-06</span><span>★★☆</span></div>
+          <button class="btn btn-primary" id="th-claim-4" style="width:100%;font-size:12px">领取任务</button>
+        </div>
+        <div class="th-card" id="thcard-5">
+          <div class="th-top-bar" style="background:linear-gradient(90deg,var(--pink),var(--accent2))"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-blue" style="font-size:10px">🎨 I2I 风格迁移标注</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#I2I-0101</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">水墨风→赛博朋克迁移标注</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">标注色彩映射/构图转换细节</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 80条</span><span>⏰ 04-08</span><span>★★★</span></div>
+          <button class="btn btn-primary" id="th-claim-5" style="width:100%;font-size:12px">领取任务</button>
+        </div>
+        <div class="th-card" style="opacity:.5">
+          <div class="th-top-bar" style="background:var(--border)"></div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><span class="chip chip-yellow" style="font-size:10px">🎬 视频标注</span><span style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">#ANN-2410</span></div>
+          <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:6px">视频目标追踪标注</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px">需要视频标注资质认证后可领取</div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:12px"><span>📦 100条</span><span>⏰ 04-10</span><span>★★★</span></div>
+          <button class="btn" style="width:100%;font-size:12px;cursor:not-allowed">🔒 需要认证</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANNOTATION ══ -->
+    <div class="screen" id="screen-annotation">
+      <div class="page-header">
+        <div><div class="page-title">🏷️ 标注工作台</div><div class="page-sub">任务 #ANN-2401 · 城市人物图像标注 · 图片目标检测</div></div>
+        <button class="btn btn-primary" id="btn-submit-annotation">✅ 提交标注</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+        <!-- Canvas -->
+        <div class="card" style="padding:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:12px;color:var(--text2)">图片 <span style="color:var(--accent);font-family:'Space Mono',monospace">#047 / 200</span></div>
+            <div style="display:flex;gap:6px">
+              <span style="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(79,140,255,.1);color:var(--accent);cursor:pointer">框选</span>
+              <span style="font-size:11px;padding:3px 8px;border-radius:5px;background:var(--surf2);color:var(--text2);cursor:pointer">多边形</span>
+              <span style="font-size:11px;padding:3px 8px;border-radius:5px;background:var(--surf2);color:var(--text2);cursor:pointer">关键点</span>
+            </div>
+          </div>
+          <div class="ann-canvas" id="ann-canvas" style="height:300px;position:relative">
+            <!-- SVG street scene -->
+            <svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+              <defs>
+                <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a3a5c"/><stop offset="100%" stop-color="#2d5a8e"/></linearGradient>
+                <linearGradient id="roadG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a2a2a"/><stop offset="100%" stop-color="#1a1a1a"/></linearGradient>
+              </defs>
+              <rect width="600" height="300" fill="url(#skyG)"/>
+              <!-- Buildings -->
+              <rect x="0" y="60" width="120" height="240" fill="#1e2d3d" stroke="#263545" stroke-width="1"/>
+              <rect x="10" y="80" width="20" height="25" fill="rgba(255,220,100,.15)" rx="1"/><rect x="38" y="80" width="20" height="25" fill="rgba(255,220,100,.25)" rx="1"/><rect x="66" y="80" width="20" height="25" fill="rgba(255,220,100,.1)" rx="1"/>
+              <rect x="10" y="120" width="20" height="25" fill="rgba(255,220,100,.2)" rx="1"/><rect x="38" y="120" width="20" height="25" fill="rgba(255,220,100,.08)" rx="1"/>
+              <rect x="10" y="160" width="20" height="25" fill="rgba(255,220,100,.15)" rx="1"/><rect x="38" y="160" width="20" height="25" fill="rgba(255,220,100,.3)" rx="1"/><rect x="66" y="160" width="20" height="25" fill="rgba(255,220,100,.1)" rx="1"/>
+              <rect x="130" y="30" width="100" height="270" fill="#172232" stroke="#1e2d3d" stroke-width="1"/>
+              <rect x="140" y="50" width="18" height="22" fill="rgba(100,180,255,.15)" rx="1"/><rect x="165" y="50" width="18" height="22" fill="rgba(100,180,255,.25)" rx="1"/><rect x="190" y="50" width="18" height="22" fill="rgba(100,180,255,.1)" rx="1"/>
+              <rect x="140" y="85" width="18" height="22" fill="rgba(100,180,255,.2)" rx="1"/><rect x="165" y="85" width="18" height="22" fill="rgba(100,180,255,.08)" rx="1"/><rect x="190" y="85" width="18" height="22" fill="rgba(100,180,255,.18)" rx="1"/>
+              <rect x="140" y="120" width="18" height="22" fill="rgba(100,180,255,.12)" rx="1"/><rect x="165" y="120" width="18" height="22" fill="rgba(100,180,255,.28)" rx="1"/>
+              <rect x="140" y="155" width="18" height="22" fill="rgba(100,180,255,.15)" rx="1"/><rect x="165" y="155" width="18" height="22" fill="rgba(100,180,255,.1)" rx="1"/><rect x="190" y="155" width="18" height="22" fill="rgba(100,180,255,.22)" rx="1"/>
+              <rect x="340" y="80" width="90" height="220" fill="#1e2d3d" stroke="#263545" stroke-width="1"/>
+              <rect x="350" y="100" width="16" height="20" fill="rgba(255,180,80,.12)" rx="1"/><rect x="373" y="100" width="16" height="20" fill="rgba(255,180,80,.25)" rx="1"/><rect x="396" y="100" width="16" height="20" fill="rgba(255,180,80,.08)" rx="1"/>
+              <rect x="350" y="135" width="16" height="20" fill="rgba(255,180,80,.18)" rx="1"/><rect x="373" y="135" width="16" height="20" fill="rgba(255,180,80,.1)" rx="1"/>
+              <rect x="350" y="170" width="16" height="20" fill="rgba(255,180,80,.2)" rx="1"/><rect x="373" y="170" width="16" height="20" fill="rgba(255,180,80,.3)" rx="1"/><rect x="396" y="170" width="16" height="20" fill="rgba(255,180,80,.12)" rx="1"/>
+              <rect x="450" y="40" width="150" height="260" fill="#172232" stroke="#1e2d3d" stroke-width="1"/>
+              <rect x="460" y="60" width="14" height="18" fill="rgba(150,200,255,.15)" rx="1"/><rect x="480" y="60" width="14" height="18" fill="rgba(150,200,255,.1)" rx="1"/><rect x="500" y="60" width="14" height="18" fill="rgba(150,200,255,.25)" rx="1"/><rect x="520" y="60" width="14" height="18" fill="rgba(150,200,255,.08)" rx="1"/><rect x="540" y="60" width="14" height="18" fill="rgba(150,200,255,.2)" rx="1"/>
+              <!-- Road -->
+              <rect x="0" y="210" width="600" height="90" fill="url(#roadG)"/>
+              <rect x="0" y="208" width="600" height="4" fill="#3a4a5a"/>
+              <!-- Road markings -->
+              <rect x="50" y="230" width="40" height="6" fill="rgba(255,255,255,.15)" rx="2"/><rect x="50" y="244" width="40" height="6" fill="rgba(255,255,255,.15)" rx="2"/><rect x="50" y="258" width="40" height="6" fill="rgba(255,255,255,.15)" rx="2"/>
+              <rect x="200" y="228" width="50" height="4" fill="rgba(255,255,255,.08)" rx="2"/><rect x="260" y="228" width="50" height="4" fill="rgba(255,255,255,.08)" rx="2"/><rect x="320" y="228" width="50" height="4" fill="rgba(255,255,255,.08)" rx="2"/><rect x="380" y="228" width="50" height="4" fill="rgba(255,255,255,.08)" rx="2"/><rect x="440" y="228" width="50" height="4" fill="rgba(255,255,255,.08)" rx="2"/>
+              <!-- Sidewalk -->
+              <rect x="0" y="195" width="600" height="15" fill="#2d3748"/>
+              <!-- Street lights -->
+              <line x1="155" y1="60" x2="155" y2="210" stroke="#334" stroke-width="2"/>
+              <line x1="155" y1="60" x2="175" y2="60" stroke="#334" stroke-width="2"/>
+              <circle cx="175" cy="60" r="4" fill="#ffe" opacity=".6"/>
+              <ellipse cx="165" cy="62" rx="20" ry="6" fill="rgba(255,255,220,.05)"/>
+              <line x1="445" y1="85" x2="445" y2="210" stroke="#334" stroke-width="2"/>
+              <line x1="445" y1="85" x2="425" y2="85" stroke="#334" stroke-width="2"/>
+              <circle cx="425" cy="85" r="4" fill="#ffe" opacity=".6"/>
+              <!-- Persons (blurred silhouettes) -->
+              <g opacity=".9">
+                <ellipse cx="115" cy="190" rx="10" ry="18" fill="#3a4a5a"/>
+                <circle cx="115" cy="166" r="9" fill="#4a5a6a"/>
+                <rect x="108" y="175" width="14" height="2" fill="#5a6a7a" opacity=".5"/>
+              </g>
+              <g opacity=".85">
+                <ellipse cx="260" cy="193" rx="9" ry="16" fill="#2a3a4a"/>
+                <circle cx="260" cy="171" r="8" fill="#3a4a5a"/>
+              </g>
+              <g opacity=".8">
+                <ellipse cx="390" cy="188" rx="11" ry="19" fill="#3a4a5a"/>
+                <circle cx="390" cy="163" r="10" fill="#4a5568"/>
+                <rect x="385" y="168" width="10" height="2" fill="#5a6a7a" opacity=".5"/>
+              </g>
+              <!-- Car -->
+              <rect x="290" y="218" width="80" height="36" rx="5" fill="#2a4060"/>
+              <rect x="302" y="210" width="56" height="22" rx="3" fill="#223050"/>
+              <rect x="306" y="213" width="20" height="14" fill="rgba(100,180,255,.3)" rx="1"/>
+              <rect x="330" y="213" width="20" height="14" fill="rgba(100,180,255,.25)" rx="1"/>
+              <circle cx="305" cy="256" r="7" fill="#111" stroke="#333" stroke-width="2"/>
+              <circle cx="355" cy="256" r="7" fill="#111" stroke="#333" stroke-width="2"/>
+            </svg>
+            <!-- Bounding boxes -->
+            <div id="bbox1" class="bbox" style="left:14%;top:48%;width:13%;height:42%;opacity:0"><div class="bbox-label">行人 #1 · 无遮挡</div></div>
+            <div id="bbox2" class="bbox" style="left:40%;top:52%;width:11%;height:38%;opacity:0;border-color:var(--green)"><div class="bbox-label" style="background:var(--green)">行人 #2 · 部分遮挡</div></div>
+            <div id="bbox3" class="bbox" style="left:61%;top:46%;width:14%;height:44%;opacity:0;border-color:var(--yellow)"><div class="bbox-label" style="background:var(--yellow)">行人 #3 · 无遮挡</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+            <div style="font-size:11px;color:var(--text2)">完成进度</div>
+            <div style="font-size:11px;color:var(--accent);font-family:'Space Mono',monospace">136 / 200</div>
+          </div>
+          <div class="prog-bar" style="margin-top:4px"><div class="prog-fill" id="ann-progress" style="width:68%;background:var(--accent)"></div></div>
+        </div>
+        <!-- Right panel -->
+        <div>
+          <div class="card">
+            <div class="card-title">📋 标注记录</div>
+            <div id="ann-records" style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+              <div style="background:var(--surf2);border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px;opacity:.4;font-size:11px;color:var(--text3)">等待标注...</div>
+              <div id="ann-record-1" style="background:var(--surf2);border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .3s"><span style="color:var(--accent);font-family:'Space Mono',monospace;font-size:10px">#1</span><span>行人</span><span class="chip chip-green" style="font-size:9px;margin-left:auto">无遮挡</span></div>
+              <div id="ann-record-2" style="background:var(--surf2);border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .3s"><span style="color:var(--green);font-family:'Space Mono',monospace;font-size:10px">#2</span><span>行人</span><span class="chip chip-yellow" style="font-size:9px;margin-left:auto">部分遮挡</span></div>
+              <div id="ann-record-3" style="background:var(--surf2);border-radius:6px;padding:8px;display:flex;align-items:center;gap:8px;opacity:0;transition:opacity .3s"><span style="color:var(--yellow);font-family:'Space Mono',monospace;font-size:10px">#3</span><span>行人</span><span class="chip chip-green" style="font-size:9px;margin-left:auto">无遮挡</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🛡️ 数据脱敏状态</div>
+            <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:10px;font-size:12px"><div style="color:var(--green);margin-bottom:4px">✅ PII 检测完成</div><div style="color:var(--text2);font-size:11px">未发现敏感信息</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">📖 标注规则</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.7">框选所有行人目标（含遮挡），标记遮挡比例：<br>· 无遮挡：目标完全可见<br>· 部分遮挡：遮挡 &lt;50%<br>· 严重遮挡：遮挡 &gt;50%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══ T2I ANNOTATION ══ -->
+    <div class="screen" id="screen-t2i">
+      <div class="page-header">
+        <div><div class="page-title">🖼️ 文生图 Prompt 标注工作台</div><div class="page-sub">任务 #T2I-0301 · 复古风格提示词精细化拆解 · Token 序列标注</div></div>
+        <button class="btn btn-primary" id="btn-submit-t2i">✅ 提交标注</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:16px">
+        <!-- Left: prompt decomposition workspace -->
+        <div>
+          <div class="card">
+            <div class="card-title">📝 原始 Prompt — 待标注</div>
+            <div style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:14px;color:var(--text);line-height:1.8;margin-bottom:12px" id="t2i-raw-prompt">
+              "复古风，一个女孩在街边，有点胶片感"
+            </div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">⬇ 将模糊描述拆解为可训练 Token 序列（每个 Token 对应一个可调节参数）</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🏷️ Token 标注面板 — 逐项拆解</div>
+            <div id="t2i-token-panel" style="display:flex;flex-direction:column;gap:10px">
+
+              <!-- Token 1 -->
+              <div class="t2i-token-row" id="t2i-tok-1" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);width:20px">①</span>
+                  <span style="font-size:13px;color:#fff;font-weight:600">胶片质感</span>
+                  <span class="chip chip-blue" style="font-size:10px;margin-left:auto">视觉质地</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span id="t2i-t1-grain" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">grain: 0.35</span>
+                  <span id="t2i-t1-halation" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">halation: 0.2</span>
+                  <span id="t2i-t1-vignette" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">vignette: 0.4</span>
+                </div>
+              </div>
+
+              <!-- Token 2 -->
+              <div class="t2i-token-row" id="t2i-tok-2" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);width:20px">②</span>
+                  <span style="font-size:13px;color:#fff;font-weight:600">色温 / 滤镜</span>
+                  <span class="chip chip-yellow" style="font-size:10px;margin-left:auto">色彩调性</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span id="t2i-t2-temp" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">color_temp: +800K</span>
+                  <span id="t2i-t2-sat" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">saturation: -30%</span>
+                  <span id="t2i-t2-fade" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">fade: 0.15</span>
+                </div>
+              </div>
+
+              <!-- Token 3 -->
+              <div class="t2i-token-row" id="t2i-tok-3" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);width:20px">③</span>
+                  <span style="font-size:13px;color:#fff;font-weight:600">时代感 / 像素</span>
+                  <span class="chip chip-purple" style="font-size:10px;margin-left:auto">时代特征</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span id="t2i-t3-era" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">era: 1990s</span>
+                  <span id="t2i-t3-res" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">resolution: lo-fi</span>
+                  <span id="t2i-t3-iso" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">ISO: 3200</span>
+                </div>
+              </div>
+
+              <!-- Token 4 -->
+              <div class="t2i-token-row" id="t2i-tok-4" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                  <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);width:20px">④</span>
+                  <span style="font-size:13px;color:#fff;font-weight:600">构图 / 景深</span>
+                  <span class="chip chip-green" style="font-size:10px;margin-left:auto">构图参数</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <span id="t2i-t4-lens" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">lens: 35mm</span>
+                  <span id="t2i-t4-dof" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">dof: shallow</span>
+                  <span id="t2i-t4-rule" style="padding:4px 10px;border-radius:12px;font-size:11px;font-family:'Space Mono',monospace;background:var(--surf);border:1px solid var(--border);color:var(--text2);cursor:pointer">rule_of_thirds: on</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Optimized prompt output -->
+          <div class="card" id="t2i-result-card" style="display:none">
+            <div class="card-title">✅ 标注产出 — 精炼 Prompt 序列</div>
+            <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:12px;font-size:12px;font-family:'Space Mono',monospace;color:var(--green);line-height:2" id="t2i-output-prompt"></div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text2)">📦 本条标注数据将进入 T2I 训练对齐数据集，用于 LoRA 微调</div>
+          </div>
+        </div>
+
+        <!-- Right panel -->
+        <div>
+          <div class="card">
+            <div class="card-title">📊 标注质量指标</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Token 覆盖度</span><span id="t2i-cov" style="color:var(--green);font-weight:700">0%</span></div><div class="prog-bar"><div class="prog-fill" id="t2i-cov-bar" style="width:0%;background:var(--green)"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>参数精度</span><span id="t2i-prec" style="color:var(--accent);font-weight:700">0%</span></div><div class="prog-bar"><div class="prog-fill" id="t2i-prec-bar" style="width:0%;background:var(--accent)"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>与参考图对齐度</span><span id="t2i-align" style="color:var(--yellow);font-weight:700">0%</span></div><div class="prog-bar"><div class="prog-fill" id="t2i-align-bar" style="width:0%;background:var(--yellow)"></div></div></div>
+            </div>
+            <div style="text-align:center;margin-top:14px;padding:12px;background:var(--surf2);border-radius:8px">
+              <div style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:var(--green)" id="t2i-score">—</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">标注综合评分</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🖼️ Midjourney 参考图</div>
+            <!-- SVG: vintage style girl on street -->
+            <div style="border-radius:8px;overflow:hidden;height:160px;position:relative">
+              <svg viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+                <defs>
+                  <filter id="grain-t2i"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feBlend in="SourceGraphic" mode="multiply" result="blend"/><feComponentTransfer><feFuncA type="linear" slope="0.08"/></feComponentTransfer><feComposite in="SourceGraphic" operator="over"/></filter>
+                  <linearGradient id="streetG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c8a96e"/><stop offset="60%" stop-color="#8b6940"/><stop offset="100%" stop-color="#5a3e20"/></linearGradient>
+                  <linearGradient id="skyVintage" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8c89a"/><stop offset="100%" stop-color="#d4a574"/></linearGradient>
+                </defs>
+                <!-- Sky -->
+                <rect width="240" height="100" fill="url(#skyVintage)" opacity=".9"/>
+                <!-- Buildings silhouette -->
+                <rect x="0" y="30" width="60" height="70" fill="#7a5c38" opacity=".7"/>
+                <rect x="5" y="40" width="10" height="12" fill="#c8a87a" opacity=".3"/>
+                <rect x="20" y="40" width="10" height="12" fill="#c8a87a" opacity=".4"/>
+                <rect x="35" y="35" width="10" height="12" fill="#c8a87a" opacity=".25"/>
+                <rect x="170" y="20" width="70" height="80" fill="#6b4f2e" opacity=".65"/>
+                <rect x="178" y="32" width="10" height="14" fill="#c8a87a" opacity=".3"/>
+                <rect x="196" y="28" width="10" height="14" fill="#c8a87a" opacity=".4"/>
+                <rect x="214" y="35" width="10" height="12" fill="#c8a87a" opacity=".25"/>
+                <!-- Street -->
+                <rect x="0" y="100" width="240" height="60" fill="url(#streetG)"/>
+                <rect x="0" y="100" width="240" height="3" fill="#9a7448" opacity=".5"/>
+                <!-- Sidewalk cracks -->
+                <line x1="30" y1="110" x2="45" y2="125" stroke="#7a5c38" stroke-width=".8" opacity=".4"/>
+                <line x1="100" y1="115" x2="120" y2="128" stroke="#7a5c38" stroke-width=".8" opacity=".3"/>
+                <!-- Girl silhouette -->
+                <g transform="translate(95,52)">
+                  <!-- dress -->
+                  <path d="M0,30 Q-14,35 -12,65 L12,65 Q14,35 0,30 Z" fill="#3d2810" opacity=".85"/>
+                  <!-- hair -->
+                  <ellipse cx="0" cy="14" rx="11" ry="14" fill="#2a1a08" opacity=".9"/>
+                  <path d="M-11,14 Q-16,28 -13,38" fill="none" stroke="#2a1a08" stroke-width="4" stroke-linecap="round" opacity=".85"/>
+                  <!-- face -->
+                  <ellipse cx="0" cy="16" rx="8" ry="10" fill="#c8956a" opacity=".8"/>
+                  <!-- bag -->
+                  <rect x="11" y="36" width="10" height="14" rx="2" fill="#5a3820" opacity=".7"/>
+                </g>
+                <!-- Vintage overlay -->
+                <rect width="240" height="160" fill="rgba(180,120,40,.12)"/>
+                <!-- Vignette -->
+                <radialGradient id="vigT" cx="50%" cy="50%" r="70%"><stop offset="55%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(40,20,5,.55)"/></radialGradient>
+                <rect width="240" height="160" fill="url(#vigT)"/>
+                <!-- Grain -->
+                <rect width="240" height="160" filter="url(#grain-t2i)" opacity=".6"/>
+                <!-- Film scratch -->
+                <line x1="180" y1="0" x2="182" y2="160" stroke="rgba(255,220,150,.08)" stroke-width="1"/>
+              </svg>
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'Space Mono',monospace">MJ参考图 · 复古风 · v6</div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📋 任务进度</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:6px">本批次标注进度</div>
+            <div class="prog-bar"><div class="prog-fill" id="t2i-progress" style="width:34%;background:var(--yellow)"></div></div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">52 / 150 已完成</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ I2I ANNOTATION ══ -->
+    <div class="screen" id="screen-i2i">
+      <div class="page-header">
+        <div><div class="page-title">🎨 图生图 风格迁移标注工作台</div><div class="page-sub">任务 #I2I-0101 · 水墨风 → 赛博朋克 · 色彩映射 & 构图转换细节标注</div></div>
+        <button class="btn btn-primary" id="btn-submit-i2i">✅ 提交标注</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- Left: source image -->
+        <div>
+          <div class="card">
+            <div class="card-title">🖌️ 源图 — 水墨风</div>
+            <div style="border-radius:8px;overflow:hidden;height:220px;position:relative;margin-bottom:10px" id="i2i-source-img">
+              <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+                <defs>
+                  <filter id="ink"><feGaussianBlur stdDeviation="1.2" result="blur"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 12 -4" result="ink"/><feComposite in="SourceGraphic" in2="ink" operator="over"/></filter>
+                  <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5"/><feDisplacementMap in="SourceGraphic" scale="3"/></filter>
+                </defs>
+                <rect width="320" height="220" fill="#f5f0e8"/>
+                <!-- Paper texture -->
+                <rect width="320" height="220" fill="rgba(180,160,120,.08)" filter="url(#paper)"/>
+                <!-- Mountains -->
+                <path d="M0,160 Q40,60 80,120 Q120,40 160,100 Q200,30 240,110 Q280,55 320,140 L320,220 L0,220 Z" fill="rgba(30,20,10,.75)" filter="url(#ink)"/>
+                <path d="M0,180 Q60,120 100,155 Q150,100 190,145 Q230,110 280,160 L320,180 L320,220 L0,220 Z" fill="rgba(20,15,5,.55)"/>
+                <!-- Mist bands -->
+                <rect x="0" y="135" width="320" height="20" fill="rgba(245,240,232,.5)"/>
+                <rect x="0" y="100" width="320" height="15" fill="rgba(245,240,232,.35)"/>
+                <!-- Pine trees -->
+                <g transform="translate(50,105)" fill="rgba(10,8,5,.8)" filter="url(#ink)">
+                  <polygon points="0,-40 8,0 -8,0"/>
+                  <polygon points="0,-28 10,4 -10,4"/>
+                  <rect x="-3" y="4" width="6" height="12"/>
+                </g>
+                <g transform="translate(260,120)" fill="rgba(10,8,5,.7)" filter="url(#ink)">
+                  <polygon points="0,-32 6,0 -6,0"/>
+                  <polygon points="0,-22 8,3 -8,3"/>
+                  <rect x="-2" y="3" width="5" height="9"/>
+                </g>
+                <!-- Pavilion -->
+                <g transform="translate(145,108)">
+                  <polygon points="-18,-10 0,-22 18,-10" fill="rgba(40,25,10,.8)"/>
+                  <rect x="-12" y="-10" width="24" height="20" fill="rgba(30,20,8,.6)"/>
+                </g>
+                <!-- Calligraphy marks -->
+                <text x="285" y="40" fill="rgba(20,15,5,.35)" font-size="11" font-family="serif" transform="rotate(-5,285,40)">山水</text>
+                <!-- Red seal -->
+                <rect x="290" y="180" width="20" height="22" rx="2" fill="rgba(180,30,30,.6)"/>
+                <text x="300" y="196" text-anchor="middle" fill="rgba(245,240,232,.9)" font-size="9" font-family="serif">印</text>
+                <!-- Vignette -->
+                <radialGradient id="vigI" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(180,160,120,.2)"/></radialGradient>
+                <rect width="320" height="220" fill="url(#vigI)"/>
+              </svg>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="i2i-source-tags">
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(30,20,10,.15);color:#8b6940;border:1px solid rgba(139,105,64,.3)">水墨渲染</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(30,20,10,.15);color:#8b6940;border:1px solid rgba(139,105,64,.3)">留白构图</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(30,20,10,.15);color:#8b6940;border:1px solid rgba(139,105,64,.3)">无彩色系</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(30,20,10,.15);color:#8b6940;border:1px solid rgba(139,105,64,.3)">垂直线条</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: target + annotation -->
+        <div>
+          <div class="card">
+            <div class="card-title">🌆 目标风格 — 赛博朋克</div>
+            <div style="border-radius:8px;overflow:hidden;height:220px;position:relative;margin-bottom:10px">
+              <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+                <defs>
+                  <linearGradient id="cyberSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d0020"/><stop offset="100%" stop-color="#1a0035"/></linearGradient>
+                  <filter id="glow-i2i"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <rect width="320" height="220" fill="url(#cyberSky)"/>
+                <!-- Buildings -->
+                <rect x="0" y="30" width="55" height="190" fill="#0d1a2e"/>
+                <rect x="10" y="45" width="12" height="8" fill="rgba(0,255,200,.3)"/><rect x="28" y="45" width="12" height="8" fill="rgba(0,255,200,.15)"/><rect x="10" y="62" width="12" height="8" fill="rgba(100,200,255,.25)"/><rect x="28" y="62" width="12" height="8" fill="rgba(0,255,200,.35)"/><rect x="10" y="79" width="12" height="8" fill="rgba(0,255,200,.1)"/><rect x="28" y="79" width="12" height="8" fill="rgba(100,200,255,.3)"/>
+                <rect x="60" y="10" width="70" height="210" fill="#0a1525"/>
+                <rect x="68" y="22" width="14" height="10" fill="rgba(255,0,180,.25)"/><rect x="88" y="22" width="14" height="10" fill="rgba(255,0,180,.4)"/><rect x="108" y="22" width="14" height="10" fill="rgba(255,0,180,.15)"/>
+                <rect x="68" y="42" width="14" height="10" fill="rgba(0,200,255,.3)"/><rect x="88" y="42" width="14" height="10" fill="rgba(0,200,255,.15)"/><rect x="108" y="42" width="14" height="10" fill="rgba(0,200,255,.35)"/>
+                <rect x="68" y="62" width="14" height="10" fill="rgba(255,0,180,.2)"/><rect x="88" y="62" width="14" height="10" fill="rgba(0,200,255,.25)"/><rect x="108" y="62" width="14" height="10" fill="rgba(255,0,180,.3)"/>
+                <rect x="195" y="20" width="60" height="200" fill="#0d1a2e"/>
+                <rect x="205" y="35" width="11" height="8" fill="rgba(0,255,200,.2)"/><rect x="222" y="35" width="11" height="8" fill="rgba(0,255,200,.35)"/><rect x="239" y="35" width="11" height="8" fill="rgba(0,255,200,.15)"/>
+                <rect x="265" y="0" width="55" height="220" fill="#0a1525"/>
+                <rect x="273" y="15" width="11" height="9" fill="rgba(255,0,180,.35)"/><rect x="290" y="15" width="11" height="9" fill="rgba(255,0,180,.2)"/><rect x="307" y="15" width="11" height="9" fill="rgba(255,0,180,.4)"/>
+                <!-- Neon signs -->
+                <rect x="62" y="5" width="66" height="4" rx="2" fill="rgba(255,0,180,.8)" filter="url(#glow-i2i)"/>
+                <text x="95" y="3" text-anchor="middle" fill="rgba(255,150,220,.9)" font-size="5" font-family="monospace">CYBER</text>
+                <!-- Ground / road -->
+                <rect x="0" y="175" width="320" height="45" fill="#080818"/>
+                <rect x="0" y="173" width="320" height="3" fill="rgba(0,200,255,.4)" filter="url(#glow-i2i)"/>
+                <!-- Rain streaks -->
+                <g stroke="rgba(100,180,255,.12)" stroke-width=".8">
+                  <line x1="20" y1="0" x2="15" y2="175"/><line x1="55" y1="0" x2="50" y2="175"/>
+                  <line x1="90" y1="0" x2="85" y2="175"/><line x1="140" y1="0" x2="135" y2="175"/>
+                  <line x1="190" y1="0" x2="185" y2="175"/><line x1="230" y1="0" x2="225" y2="175"/>
+                  <line x1="270" y1="0" x2="265" y2="175"/><line x1="305" y1="0" x2="300" y2="175"/>
+                </g>
+                <!-- Neon reflections in street -->
+                <rect x="0" y="175" width="320" height="45" fill="rgba(0,0,0,.5)"/>
+                <ellipse cx="95" cy="188" rx="30" ry="5" fill="rgba(255,0,180,.1)" filter="url(#glow-i2i)"/>
+                <!-- Figure silhouette -->
+                <g transform="translate(148,130)">
+                  <path d="M0,20 Q-10,25 -8,50 L8,50 Q10,25 0,20 Z" fill="#0d0020"/>
+                  <ellipse cx="0" cy="12" rx="8" ry="11" fill="#0d0020"/>
+                  <!-- Neon outline on figure -->
+                  <path d="M0,20 Q-10,25 -8,50 L8,50 Q10,25 0,20 Z" fill="none" stroke="rgba(0,255,200,.6)" stroke-width=".8"/>
+                  <ellipse cx="0" cy="12" rx="8" ry="11" fill="none" stroke="rgba(0,255,200,.5)" stroke-width=".8"/>
+                </g>
+                <!-- Fog / atmosphere -->
+                <rect width="320" height="220" fill="rgba(10,0,30,.2)"/>
+              </svg>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="i2i-target-tags">
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(0,255,200,.08);color:rgba(0,255,200,.9);border:1px solid rgba(0,255,200,.2)">霓虹光效</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(255,0,180,.08);color:rgba(255,100,220,.9);border:1px solid rgba(255,0,180,.2)">高对比</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(100,200,255,.08);color:rgba(100,200,255,.9);border:1px solid rgba(100,200,255,.2)">雨夜街道</span>
+              <span style="padding:3px 9px;border-radius:10px;font-size:10px;background:rgba(124,58,237,.15);color:#a78bfa;border:1px solid rgba(124,58,237,.3)">暗调蓝紫</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mapping annotation panel -->
+      <div class="card" style="margin-top:0">
+        <div class="card-title">🔗 风格迁移映射标注 — 逐维度对应</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px" id="i2i-mapping-panel">
+
+          <!-- Mapping 1: Color -->
+          <div id="i2i-map-1" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+            <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);margin-bottom:8px">色彩映射</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="width:40px;height:24px;border-radius:4px;background:linear-gradient(135deg,#2a1a08,#8b6940);flex-shrink:0"></div>
+              <span style="font-size:18px;color:var(--text3)">→</span>
+              <div style="width:40px;height:24px;border-radius:4px;background:linear-gradient(135deg,#0d0020,rgba(0,255,200,.5));flex-shrink:0"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text2)">暖棕无彩 <span style="color:var(--accent)">→</span> 深紫+霓虹青</div>
+            <div id="i2i-m1-tag" style="display:none;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;background:rgba(0,255,200,.1);color:rgba(0,255,200,.9);border:1px solid rgba(0,255,200,.2);font-family:'Space Mono',monospace">✓ 已标注</div>
+          </div>
+
+          <!-- Mapping 2: Composition -->
+          <div id="i2i-map-2" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+            <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);margin-bottom:8px">构图转换</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <svg width="40" height="24" viewBox="0 0 40 24"><rect width="40" height="24" fill="#f5f0e8" rx="2"/><path d="M5,20 Q15,8 20,15 Q25,5 35,18 L35,24 L5,24 Z" fill="rgba(30,20,10,.6)"/></svg>
+              <span style="font-size:18px;color:var(--text3)">→</span>
+              <svg width="40" height="24" viewBox="0 0 40 24"><rect width="40" height="24" fill="#0d0020" rx="2"/><rect x="0" y="0" width="12" height="24" fill="#0a1525"/><rect x="28" y="0" width="12" height="24" fill="#0a1525"/><rect x="5" y="10" width="5" height="3" fill="rgba(0,255,200,.5)"/><rect x="30" y="8" width="5" height="3" fill="rgba(255,0,180,.5)"/></svg>
+            </div>
+            <div style="font-size:11px;color:var(--text2)">留白山水 <span style="color:var(--accent)">→</span> 高楼密布垂直感</div>
+            <div id="i2i-m2-tag" style="display:none;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;background:rgba(0,255,200,.1);color:rgba(0,255,200,.9);border:1px solid rgba(0,255,200,.2);font-family:'Space Mono',monospace">✓ 已标注</div>
+          </div>
+
+          <!-- Mapping 3: Texture/Light -->
+          <div id="i2i-map-3" style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;opacity:.4;transition:all .3s">
+            <div style="font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);margin-bottom:8px">光源 / 质感</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <svg width="40" height="24" viewBox="0 0 40 24"><rect width="40" height="24" fill="#f5f0e8" rx="2"/><ellipse cx="20" cy="6" rx="15" ry="4" fill="rgba(180,160,120,.4)"/><text x="20" y="17" text-anchor="middle" fill="rgba(30,20,10,.4)" font-size="7">漫反射</text></svg>
+              <span style="font-size:18px;color:var(--text3)">→</span>
+              <svg width="40" height="24" viewBox="0 0 40 24"><rect width="40" height="24" fill="#0d0020" rx="2"/><ellipse cx="20" cy="12" rx="12" ry="4" fill="rgba(0,255,200,.3)"/><line x1="8" y1="0" x2="6" y2="24" stroke="rgba(100,180,255,.15)" stroke-width=".8"/><line x1="20" y1="0" x2="18" y2="24" stroke="rgba(100,180,255,.15)" stroke-width=".8"/><line x1="32" y1="0" x2="30" y2="24" stroke="rgba(100,180,255,.15)" stroke-width=".8"/></svg>
+            </div>
+            <div style="font-size:11px;color:var(--text2)">墨色漫反射 <span style="color:var(--accent)">→</span> 霓虹点光+雨纹</div>
+            <div id="i2i-m3-tag" style="display:none;margin-top:6px;padding:3px 8px;border-radius:6px;font-size:10px;background:rgba(0,255,200,.1);color:rgba(0,255,200,.9);border:1px solid rgba(0,255,200,.2);font-family:'Space Mono',monospace">✓ 已标注</div>
+          </div>
+        </div>
+
+        <!-- Quality verdict -->
+        <div id="i2i-verdict" style="display:none;margin-top:12px;padding:12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">✅</span>
+            <div>
+              <div style="font-size:12px;color:var(--green);font-weight:700">迁移映射标注完成</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">3 维度全覆盖 · 本条数据进入 ControlNet 对齐训练集 · 预计降低 MCN 返工 70%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ GENERATION ══ -->
+    <div class="screen" id="screen-generation">
+      <div class="page-header">
+        <div><div class="page-title">✨ AI 内容生成工作台</div><div class="page-sub">任务 #GEN-0801 · 社媒内容生成-B · Post #047</div></div>
+        <button class="btn btn-primary" id="btn-gen-start">🚀 一键生成</button>
+      </div>
+      <!-- Step track -->
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center">
+          <div style="text-align:center"><div class="step-node done" id="step1">✓</div><div class="step-lbl">领取任务</div></div>
+          <div class="step-line done"></div>
+          <div style="text-align:center"><div class="step-node active" id="step2">2</div><div class="step-lbl">Prompt优化</div></div>
+          <div class="step-line" id="step-line-2"></div>
+          <div style="text-align:center"><div class="step-node" id="step3">3</div><div class="step-lbl">AI生成</div></div>
+          <div class="step-line" id="step-line-3"></div>
+          <div style="text-align:center"><div class="step-node" id="step4">4</div><div class="step-lbl">Human编辑</div></div>
+          <div class="step-line" id="step-line-4"></div>
+          <div style="text-align:center"><div class="step-node" id="step5">5</div><div class="step-lbl">提交质检</div></div>
+        </div>
+      </div>
+
+      <div class="gen-layout">
+        <div>
+          <!-- Prompt card -->
+          <div class="card" id="prompt-card">
+            <div class="card-title">📝 Prompt 输入 &amp; Auto-Finetune</div>
+            <div style="margin-bottom:10px">
+              <div style="font-size:11px;color:var(--text2);margin-bottom:5px">原始 Prompt</div>
+              <div class="prompt-area" id="prompt-original">一个年轻女性在咖啡馆喝咖啡的照片<span class="typing-cursor" id="cursor-blink" style="display:none"></span></div>
+            </div>
+            <button class="btn btn-primary" id="btn-auto-finetune" style="margin-bottom:10px;font-size:12px;padding:6px 14px">✨ AI Auto-Finetune</button>
+            <div id="optimized-prompt-area" style="display:none">
+              <div style="font-size:11px;color:var(--green);margin-bottom:5px">✅ 优化后 Prompt</div>
+              <div class="prompt-area" id="prompt-optimized" style="border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04)"></div>
+              <div style="font-size:11px;color:var(--text2);margin-top:8px;padding:8px;background:var(--surf2);border-radius:7px" id="finetune-reason"></div>
+            </div>
+          </div>
+          <!-- Post result -->
+          <div class="card" id="post-result-card" style="display:none">
+            <div class="card-title">🖼️ 生成结果</div>
+            <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px">
+              <div class="post-img" id="post-img-area" style="background:none;padding:0">
+                <svg id="post-svg" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">
+                  <defs>
+                    <linearGradient id="wG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c9a87c"/><stop offset="100%" stop-color="#9e7550"/></linearGradient>
+                    <filter id="bl5"><feGaussianBlur stdDeviation="5"/></filter>
+                    <filter id="bl2"><feGaussianBlur stdDeviation="2"/></filter>
+                  </defs>
+                  <rect width="400" height="180" fill="url(#wG)"/>
+                  <ellipse cx="310" cy="55" rx="90" ry="65" fill="#ffe9bb" filter="url(#bl5)" opacity=".7"/>
+                  <rect x="255" y="6" width="110" height="120" rx="4" fill="none" stroke="#b07d3a" stroke-width="3"/>
+                  <line x1="310" y1="6" x2="310" y2="126" stroke="#b07d3a" stroke-width="2"/>
+                  <line x1="255" y1="66" x2="365" y2="66" stroke="#b07d3a" stroke-width="2"/>
+                  <rect x="40" y="135" width="320" height="45" rx="6" fill="#5a3415"/>
+                  <g transform="translate(135,98)">
+                    <ellipse cx="30" cy="42" rx="36" ry="7" fill="#c4946a" opacity=".9"/>
+                    <path d="M8,16 Q5,42 10,42 L50,42 Q55,42 52,16 Z" fill="#f0e6d3"/>
+                    <path d="M52,24 Q66,24 66,33 Q66,42 52,40" fill="none" stroke="#c8a882" stroke-width="2.5" stroke-linecap="round"/>
+                    <ellipse cx="30" cy="16" rx="22" ry="6" fill="#5c3317"/>
+                    <ellipse cx="30" cy="16" rx="14" ry="4" fill="#8b5e3c" opacity=".6"/>
+                    <path d="M20,15 Q30,11 40,15" fill="none" stroke="#d4a47a" stroke-width="1.2" opacity=".8"/>
+                    <path d="M22,8 Q20,2 22,-2" fill="none" stroke="#e0d0c0" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>
+                    <path d="M30,6 Q28,0 30,-4" fill="none" stroke="#e0d0c0" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>
+                  </g>
+                  <g transform="translate(210,120)">
+                    <path d="M0,0 L80,0 L80,38 L0,38 Z" rx="2" fill="#fafaf7" stroke="#ddd" stroke-width="1"/>
+                    <line x1="40" y1="0" x2="40" y2="38" stroke="#ccc" stroke-width="1"/>
+                    <line x1="5" y1="9" x2="36" y2="9" stroke="#ddd" stroke-width=".8"/><line x1="5" y1="17" x2="36" y2="17" stroke="#ddd" stroke-width=".8"/><line x1="5" y1="25" x2="36" y2="25" stroke="#ddd" stroke-width=".8"/>
+                  </g>
+                  <g filter="url(#bl2)" opacity=".3">
+                    <ellipse cx="88" cy="115" rx="24" ry="40" fill="#e8c9a0"/>
+                    <circle cx="88" cy="72" r="20" fill="#e8c9a0"/>
+                    <ellipse cx="88" cy="60" rx="22" ry="14" fill="#4a2c0a"/>
+                    <path d="M60,100 Q88,93 116,100 L113,148 L63,148 Z" fill="#f0ebe0"/>
+                  </g>
+                  <radialGradient id="vig" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,.35)"/></radialGradient>
+                  <rect width="400" height="180" fill="url(#vig)"/>
+                </svg>
+                <div id="post-fake-badge" class="fake-badge" style="display:none">⚠️ AI感偏高</div>
+                <div id="post-real-badge" class="real-badge" style="display:none">✅ 真实感优秀</div>
+              </div>
+              <div style="padding:12px">
+                <div class="post-caption" id="post-caption">正在生成...</div>
+                <div class="post-tags" id="post-tags"></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn" style="flex:1;font-size:12px" id="btn-regen-post">🔄 重新生成</button>
+              <button class="btn" style="flex:1;font-size:12px" id="btn-edit-post">✏️ Human编辑</button>
+              <button class="btn btn-primary" style="flex:1;font-size:12px" id="btn-submit-post">→ 提交质检</button>
+            </div>
+            <!-- Human edit area -->
+            <div id="human-edit-area" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+              <div style="font-size:11px;color:var(--accent);margin-bottom:7px;font-family:'Space Mono',monospace">✏️ Human-in-the-Loop 编辑</div>
+              <textarea id="human-edit-textarea" class="form-input" style="height:68px;line-height:1.7;font-size:12px" placeholder="修改文案..."></textarea>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn" style="flex:1;font-size:11px" id="btn-cancel-edit">取消</button>
+                <button class="btn btn-primary" style="flex:1;font-size:11px" id="btn-confirm-edit">✓ 确认修改</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- Multi-agent -->
+          <div class="card">
+            <div class="card-title">🤖 Multi-Agent 系统</div>
+            <div id="agent-orchestrator" class="agent-card"><div class="agent-icon">🎯</div><div><div class="agent-name">ContentOrchestrator</div><div class="agent-status" id="orch-status">等待启动...</div></div></div>
+            <div id="agent-collector" class="agent-card"><div class="agent-icon">🔍</div><div><div class="agent-name">Sub-Agent-Collector</div><div class="agent-status">素材收集</div></div></div>
+            <div id="agent-generator" class="agent-card"><div class="agent-icon">🎨</div><div><div class="agent-name">Sub-Agent-Generator</div><div class="agent-status">Post 生成</div></div></div>
+            <div id="agent-validator" class="agent-card"><div class="agent-icon">✅</div><div><div class="agent-name">Sub-Agent-Validator</div><div class="agent-status">真实性验证</div></div></div>
+            <div style="margin-top:10px;padding:10px;background:var(--surf2);border-radius:7px;font-size:11px">
+              <div style="color:var(--text3);font-family:'Space Mono',monospace;font-size:9px;margin-bottom:4px">系统日志</div>
+              <div style="color:var(--text2);line-height:1.8" id="agent-log">等待任务启动...</div>
+            </div>
+          </div>
+          <!-- Validator scores -->
+          <div class="card" id="validator-score-card" style="display:none">
+            <div class="card-title">📊 Validator 真实性评分</div>
+            <div class="qc-dim"><div class="qc-dim-title"><span>光影自然度</span><span id="score-light-val" style="color:var(--green);font-weight:700">0</span></div><div class="score-bar-bg"><div class="score-bar-fill" id="score-light" style="width:0%;background:var(--green)"></div></div></div>
+            <div class="qc-dim"><div class="qc-dim-title"><span>措辞自然度</span><span id="score-text-val" style="color:var(--green);font-weight:700">0</span></div><div class="score-bar-bg"><div class="score-bar-fill" id="score-text" style="width:0%;background:var(--green)"></div></div></div>
+            <div class="qc-dim"><div class="qc-dim-title"><span>图文匹配度</span><span id="score-match-val" style="color:var(--yellow);font-weight:700">0</span></div><div class="score-bar-bg"><div class="score-bar-fill" id="score-match" style="width:0%;background:var(--yellow)"></div></div></div>
+            <div style="text-align:center;margin-top:12px;padding:12px;background:var(--surf2);border-radius:8px">
+              <div class="score-total" id="total-score" style="color:var(--green)">0</div>
+              <div class="score-label">综合评分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ QC ══ -->
+    <div class="screen" id="screen-qc">
+      <div class="page-header">
+        <div><div class="page-title">🔍 质检审核工作台</div><div class="page-sub">待审 Post 队列 · 品牌调性校准 · 精准标注反馈</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm">📋 待审 (12)</button>
+          <button class="btn btn-sm btn-primary">全检模式</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="card">
+            <div class="card-title">🖼️ 当前审核 Post</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text2)">#GEN-0801 / Post#047</span>
+              <span class="chip chip-yellow" id="qc-status-chip">待审核</span>
+            </div>
+            <!-- QC post image (reuse SVG) -->
+            <div style="border-radius:10px;overflow:hidden;margin-bottom:10px;position:relative;height:200px">
+              <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+                <defs><linearGradient id="wG2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c9a87c"/><stop offset="100%" stop-color="#9e7550"/></linearGradient><filter id="bl5b"><feGaussianBlur stdDeviation="5"/></filter><filter id="bl2b"><feGaussianBlur stdDeviation="2"/></filter></defs>
+                <rect width="400" height="200" fill="url(#wG2)"/>
+                <ellipse cx="310" cy="60" rx="90" ry="70" fill="#ffe9bb" filter="url(#bl5b)" opacity=".65"/>
+                <rect x="255" y="6" width="115" height="135" rx="4" fill="none" stroke="#b07d3a" stroke-width="3"/>
+                <line x1="312" y1="6" x2="312" y2="141" stroke="#b07d3a" stroke-width="2"/>
+                <line x1="255" y1="73" x2="370" y2="73" stroke="#b07d3a" stroke-width="2"/>
+                <rect x="30" y="155" width="340" height="45" rx="6" fill="#5a3415"/>
+                <g transform="translate(130,108)"><ellipse cx="32" cy="46" rx="38" ry="8" fill="#c4946a" opacity=".9"/><path d="M8,18 Q5,46 11,46 L53,46 Q58,46 55,18 Z" fill="#f0e6d3"/><path d="M55,28 Q70,28 70,37 Q70,46 55,44" fill="none" stroke="#c8a882" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="32" cy="18" rx="23" ry="7" fill="#5c3317"/><ellipse cx="32" cy="18" rx="15" ry="5" fill="#8b5e3c" opacity=".6"/></g>
+                <g filter="url(#bl2b)" opacity=".3"><ellipse cx="85" cy="120" rx="24" ry="42" fill="#e8c9a0"/><circle cx="85" cy="74" r="21" fill="#e8c9a0"/><ellipse cx="85" cy="61" rx="23" ry="15" fill="#3d1f06"/><path d="M60,110 Q85,103 110,110 L107,155 L63,155 Z" fill="#d4c8b8"/></g>
+                <radialGradient id="vig2" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,.4)"/></radialGradient>
+                <rect width="400" height="200" fill="url(#vig2)"/>
+              </svg>
+              <div style="position:absolute;bottom:8px;left:8px;background:rgba(245,158,11,.85);color:#fff;font-size:10px;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:5px">⚠️ 光影区域存疑</div>
+            </div>
+            <div style="font-size:13px;line-height:1.7;color:var(--text);margin-bottom:8px">☕ 午后阳光与一杯拿铁，这就是我最爱的工作日下午 🌿 这家转角小店藏在巷子里，每次来都点同一款，生活嘛，就得有点专属的仪式感～</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <span class="post-tag">#咖啡时光</span><span class="post-tag">#慢生活</span><span class="post-tag">#下午茶</span><span class="post-tag">#OOTD</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">📊 质检评分 — 精准评审</div>
+            <!-- Dims -->
+            <div class="qc-dim" id="qc-dim-1">
+              <div class="qc-dim-title"><span>图片质量（真实感/构图）</span><span style="color:var(--yellow);font-weight:700">72</span></div>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:72%;background:var(--yellow)"></div></div>
+            </div>
+            <div class="qc-dim" id="qc-dim-2">
+              <div class="qc-dim-title"><span>文字质量（语法/流畅）</span><span style="color:var(--green);font-weight:700">88</span></div>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:88%;background:var(--green)"></div></div>
+            </div>
+            <div class="qc-dim" id="qc-dim-3">
+              <div class="qc-dim-title"><span>图文匹配度</span><span style="color:var(--green);font-weight:700">85</span></div>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:85%;background:var(--green)"></div></div>
+            </div>
+            <div class="qc-dim" id="qc-dim-4">
+              <div class="qc-dim-title"><span>视觉语言对齐（莫兰迪色/留白）</span><span style="color:var(--red);font-weight:700">61</span></div>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:61%;background:var(--red)"></div></div>
+            </div>
+            <!-- Surgical feedback -->
+            <div id="qc-feedback" style="margin-top:14px;padding:10px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px">
+              <div style="font-size:11px;color:var(--red);margin-bottom:6px;font-weight:700">🔬 精准标注反馈</div>
+              <div style="font-size:11px;color:var(--text2);line-height:1.8">
+                · 图片光影：右侧窗口光源不自然，建议加 <span style="color:var(--accent)">散射光效果</span><br>
+                · 品牌调性：色调偏暖，未达到<span style="color:var(--yellow)">莫兰迪色系</span>标准<br>
+                · 提示词偏差：将"温暖"细化为 <span style="color:var(--green)">"哑光米白+淡灰绿+留白构图"</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:14px">
+              <button class="btn" style="flex:1;font-size:12px;border-color:var(--red);color:var(--red)" id="btn-qc-reject">↩️ 打回修改</button>
+              <button class="btn btn-primary" style="flex:1;font-size:12px" id="btn-qc-pass">✅ 审核通过</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATS ══ -->
+    <div class="screen" id="screen-stats">
+      <div class="page-header">
+        <div><div class="page-title">📈 工作量统计</div><div class="page-sub">多维度产出统计 · 日/月/年/项目/任务</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="btn-filter-day" style="color:var(--accent);border-color:var(--accent)">按日</button>
+          <button class="btn btn-sm" id="btn-filter-month">按月</button>
+          <button class="btn btn-sm" id="btn-filter-project">按项目</button>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">合格标注件数/人/日</div><div class="stat-value" style="color:var(--green)">+80%</div><div class="stat-delta">相比上线前提升</div></div>
+        <div class="stat-card"><div class="stat-label">Post 一次通过率</div><div class="stat-value">73%</div><div class="stat-delta" style="color:var(--green)">↑ +28% 较上月</div></div>
+        <div class="stat-card"><div class="stat-label">AI 一眼假率</div><div class="stat-value" style="color:var(--green)">12%</div><div class="stat-delta" style="color:var(--green)">↓ 目标 &lt;10%</div></div>
+        <div class="stat-card"><div class="stat-label">MCN 返工减少率</div><div class="stat-value" style="color:var(--accent)">68%</div><div class="stat-delta" style="color:var(--yellow)">目标 &gt;70%</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-title">📊 每日产出趋势</div>
+          <svg viewBox="0 0 480 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:170px;display:block">
+            <defs>
+              <linearGradient id="barG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4f8cff"/><stop offset="100%" stop-color="#7c3aed" stop-opacity=".6"/></linearGradient>
+              <linearGradient id="barToday" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#4f8cff" stop-opacity=".7"/></linearGradient>
+              <linearGradient id="lineG" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4f8cff"/><stop offset="100%" stop-color="#10b981"/></linearGradient>
+            </defs>
+            <line x1="36" y1="16" x2="478" y2="16" stroke="#1e2540" stroke-width="1" stroke-dasharray="4,4"/>
+            <line x1="36" y1="46" x2="478" y2="46" stroke="#1e2540" stroke-width="1" stroke-dasharray="4,4"/>
+            <line x1="36" y1="76" x2="478" y2="76" stroke="#1e2540" stroke-width="1" stroke-dasharray="4,4"/>
+            <line x1="36" y1="106" x2="478" y2="106" stroke="#1e2540" stroke-width="1" stroke-dasharray="4,4"/>
+            <text x="0" y="19" fill="#4a5568" font-size="9" font-family="monospace">3.2k</text>
+            <text x="0" y="49" fill="#4a5568" font-size="9" font-family="monospace">2.4k</text>
+            <text x="0" y="79" fill="#4a5568" font-size="9" font-family="monospace">1.6k</text>
+            <text x="0" y="109" fill="#4a5568" font-size="9" font-family="monospace">0.8k</text>
+            <rect x="42" y="43" width="34" height="63" rx="3" fill="url(#barG)" opacity=".85"/>
+            <text x="59" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Mon</text>
+            <text x="59" y="39" text-anchor="middle" fill="#8892a4" font-size="9">1920</text>
+            <rect x="96" y="26" width="34" height="80" rx="3" fill="url(#barG)" opacity=".85"/>
+            <text x="113" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Tue</text>
+            <text x="113" y="22" text-anchor="middle" fill="#8892a4" font-size="9">2400</text>
+            <rect x="150" y="50" width="34" height="56" rx="3" fill="url(#barG)" opacity=".85"/>
+            <text x="167" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Wed</text>
+            <text x="167" y="46" text-anchor="middle" fill="#8892a4" font-size="9">1760</text>
+            <rect x="204" y="10" width="34" height="96" rx="3" fill="url(#barG)"/>
+            <text x="221" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Thu</text>
+            <text x="221" y="6" text-anchor="middle" fill="#8892a4" font-size="9">2880</text>
+            <rect x="258" y="20" width="34" height="86" rx="3" fill="url(#barG)" opacity=".85"/>
+            <text x="275" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Fri</text>
+            <text x="275" y="16" text-anchor="middle" fill="#8892a4" font-size="9">2560</text>
+            <rect x="312" y="62" width="34" height="44" rx="3" fill="url(#barG)" opacity=".6"/>
+            <text x="329" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Sat</text>
+            <text x="329" y="58" text-anchor="middle" fill="#8892a4" font-size="9">1440</text>
+            <rect x="366" y="80" width="34" height="26" rx="3" fill="url(#barG)" opacity=".5"/>
+            <text x="383" y="128" text-anchor="middle" fill="#4a5568" font-size="9" font-family="monospace">Sun</text>
+            <text x="383" y="76" text-anchor="middle" fill="#8892a4" font-size="9">960</text>
+            <rect x="420" y="14" width="34" height="92" rx="3" fill="url(#barToday)"/>
+            <rect x="420" y="14" width="34" height="92" rx="3" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+            <text x="437" y="128" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="monospace" font-weight="700">Today</text>
+            <text x="437" y="10" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="700">2847</text>
+            <polyline points="59,43 113,26 167,50 221,10 275,20 329,62 383,80 437,14"
+              fill="none" stroke="url(#lineG)" stroke-width="1.5" stroke-dasharray="5,3" opacity=".45"/>
+            <circle cx="59" cy="43" r="2.5" fill="#4f8cff"/><circle cx="113" cy="26" r="2.5" fill="#4f8cff"/>
+            <circle cx="167" cy="50" r="2.5" fill="#4f8cff"/><circle cx="221" cy="10" r="2.5" fill="#4f8cff"/>
+            <circle cx="275" cy="20" r="2.5" fill="#4f8cff"/><circle cx="329" cy="62" r="2.5" fill="#4f8cff"/>
+            <circle cx="383" cy="80" r="2.5" fill="#4f8cff"/><circle cx="437" cy="14" r="3.5" fill="#7c3aed" stroke="#a78bfa" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="card">
+          <div class="card-title">🏆 成功指标达成</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>SOP响应速度</span><span style="color:var(--green)">36h ✅</span></div><div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--green)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>品牌调性匹配度</span><span style="color:var(--yellow)">94%</span></div><div class="prog-bar"><div class="prog-fill" style="width:94%;background:var(--yellow)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>AI一眼假率</span><span style="color:var(--green)">12% ↓</span></div><div class="prog-bar"><div class="prog-fill" style="width:82%;background:var(--green)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>MCN返工减少</span><span style="color:var(--yellow)">68%</span></div><div class="prog-bar"><div class="prog-fill" style="width:68%;background:var(--accent)"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- AUTOPLAY BAR -->
+<div id="autoplay-bar">
+  <button id="play-btn">▶ 开始 Demo</button>
+  <button id="pause-btn" style="padding:7px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:12px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;display:none">⏸ 暂停</button>
+  <span id="step-label" style="font-family:'Space Mono',monospace;color:var(--accent);font-size:10px;min-width:200px">点击开始自动演示全流程</span>
+  <div id="scrubber-track" style="width:180px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;position:relative;flex-shrink:0;align-self:center">
+    <div id="progress-fill" style="width:0%;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;pointer-events:none;transition:width .15s"></div>
+    <div id="scrubber-thumb" style="position:absolute;top:50%;right:-1px;transform:translate(50%,-50%);width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(79,140,255,.6);pointer-events:none;transition:left .15s"></div>
+  </div>
+  <span id="step-counter" style="font-size:10px;color:var(--text3);font-family:'Space Mono',monospace">0 / 0</span>
+</div>
+
+<!-- ROLE SWITCH BANNER -->
+<div id="role-banner">
+  <div class="rb-avatar" id="rb-avatar" style="background:linear-gradient(135deg,var(--accent),var(--accent2))">王</div>
+  <div><div class="rb-label">角色切换</div><div class="rb-name" id="rb-name">项目经理 · 王建国</div></div>
+  <div class="chip chip-blue" id="rb-chip">项目经理</div>
+</div>
+
+<!-- WATERMARK -->
+<div id="watermark"></div>
+
+<script>
+
+// ── ABORT / PAUSE CONTROLLER ────────────────────────────────────
+const ctrl = {
+  aborted: false,
+  paused: false,
+  _pauseResolvers: [],
+  abort() { this.aborted = true; this.paused = false; this._pauseResolvers.forEach(r => r()); this._pauseResolvers = []; },
+  reset() { this.aborted = false; this.paused = false; this._pauseResolvers = []; },
+  pause() { this.paused = true; },
+  resume() { this.paused = false; this._pauseResolvers.forEach(r => r()); this._pauseResolvers = []; },
+  waitIfPaused() {
+    if (!this.paused) return Promise.resolve();
+    return new Promise(r => { this._pauseResolvers.push(r); });
+  }
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function sleep(ms) {
+  return new Promise(res => {
+    if (ctrl.aborted) { res(); return; }
+    let done = false;
+    const finish = () => { if (!done) { done = true; res(); } };
+    setTimeout(finish, ms);
+    // Abort check fires once at 20ms; if abort is set at that point, resolve early
+    if (ms > 25) setTimeout(() => { if (ctrl.aborted) finish(); }, 20);
+  });
+}
+
+// ── CURSOR ───────────────────────────────────────────────────────
+const cursor = document.getElementById('cursor');
+const cursorLabel = document.getElementById('cursor-label');
+let cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+cursor.style.left = cx + 'px'; cursor.style.top = cy + 'px';
+
+function moveCursorTo(x, y, label = '', duration = 1000) {
+  return new Promise(res => {
+    if (ctrl.aborted) { res(); return; }
+    const sx = cx, sy = cy, t0 = performance.now();
+    cursorLabel.textContent = label;
+    cursorLabel.style.opacity = label ? '1' : '0';
+    let rafId;
+    function frame(t) {
+      if (ctrl.aborted) { res(); return; }
+      const p = Math.min((t - t0) / duration, 1);
+      const e = p < .5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+      cx = sx + (x - sx) * e; cy = sy + (y - sy) * e;
+      cursor.style.left = cx + 'px'; cursor.style.top = cy + 'px';
+      cursorLabel.style.left = cx + 'px'; cursorLabel.style.top = cy + 'px';
+      if (p < 1) { rafId = requestAnimationFrame(frame); }
+      else { setTimeout(res, 60); }
+    }
+    rafId = requestAnimationFrame(frame);
+  });
+}
+
+async function clickAt(el, label = '') {
+  if (!el || ctrl.aborted) return;
+  const r = el.getBoundingClientRect();
+  await moveCursorTo(r.left + r.width / 2, r.top + r.height / 2, label, 800);
+  if (ctrl.aborted) return;
+  cursor.classList.add('clicking');
+  el.click();
+  await sleep(180);
+  cursor.classList.remove('clicking');
+  await sleep(120);
+}
+
+// ── HIGHLIGHT ────────────────────────────────────────────────────
+const ring = document.getElementById('highlight-ring');
+function highlightEl(el, dur = 900) {
+  if (!el || ctrl.aborted) return Promise.resolve();
+  return new Promise(res => {
+    const r = el.getBoundingClientRect();
+    ring.style.left = (r.left - 4) + 'px'; ring.style.top = (r.top - 4) + 'px';
+    ring.style.width = (r.width + 8) + 'px'; ring.style.height = (r.height + 8) + 'px';
+    ring.style.opacity = '1';
+    const id = setTimeout(() => { ring.style.opacity = '0'; setTimeout(res, 200); }, dur);
+    const check = setInterval(() => { if (ctrl.aborted) { clearTimeout(id); ring.style.opacity='0'; clearInterval(check); res(); }}, 30);
+    setTimeout(() => clearInterval(check), dur + 300);
+  });
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, icon = '✅') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = icon;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── MODAL ────────────────────────────────────────────────────────
+function showModal() { document.getElementById('modal').classList.add('show'); }
+document.getElementById('modal-confirm').onclick = () => document.getElementById('modal').classList.remove('show');
+document.getElementById('modal-cancel').onclick = () => document.getElementById('modal').classList.remove('show');
+
+// ── SCREEN / NAV ─────────────────────────────────────────────────
+const navTabs = document.querySelectorAll('.nav-tab');
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const s = document.getElementById('screen-' + name);
+  if (s) { s.classList.add('active'); s.scrollTop = 0; }
+  navTabs.forEach(t => t.classList.toggle('active', t.dataset.screen === name));
+  const sbMap = {
+    dashboard: 'sb-dashboard', taskhall: 'sb-taskhall', annotation: 'sb-annotation',
+    generation: 'sb-generation', qc: 'sb-qc', stats: 'sb-dashboard',
+    taskcreate: 'sb-task-create', taskdispatch: 'sb-task-dispatch', sop: 'sb-sop',
+    t2i: 'sb-annotation', i2i: 'sb-annotation'
+  };
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const sb = document.getElementById(sbMap[name]);
+  if (sb) sb.classList.add('active');
+}
+navTabs.forEach(t => t.addEventListener('click', () => showScreen(t.dataset.screen)));
+document.querySelectorAll('.sb-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const map = {
+      'sb-dashboard': 'dashboard', 'sb-taskhall': 'taskhall', 'sb-annotation': 'annotation',
+      'sb-generation': 'generation', 'sb-qc': 'qc', 'sb-sop': 'sop',
+      'sb-task-create': 'taskcreate', 'sb-task-dispatch': 'taskdispatch'
+    };
+    if (map[item.id]) showScreen(map[item.id]);
+  });
+});
+
+// ── ROLE SWITCH ───────────────────────────────────────────────────
+const ROLES = {
+  '项目经理': { name: '王建国', av: '王', chip: 'chip-blue', bg: 'linear-gradient(135deg,var(--accent),var(--accent2))' },
+  '标注员':   { name: '李晓明', av: '李', chip: 'chip-green', bg: 'linear-gradient(135deg,var(--green),#059669)' },
+  '创作人员': { name: '张海燕', av: '张', chip: 'chip-purple', bg: 'linear-gradient(135deg,var(--accent2),#9333ea)' },
+  '质检人员': { name: '陈建军', av: '陈', chip: 'chip-yellow', bg: 'linear-gradient(135deg,var(--yellow),#d97706)' },
+};
+async function switchRole(role) {
+  const r = ROLES[role]; if (!r) return;
+  document.getElementById('user-role-badge').textContent = role;
+  document.getElementById('user-role-badge').className = 'chip ' + r.chip;
+  document.getElementById('user-name').textContent = r.name;
+  document.getElementById('user-avatar').textContent = r.av;
+  const banner = document.getElementById('role-banner');
+  document.getElementById('rb-avatar').textContent = r.av;
+  document.getElementById('rb-avatar').style.background = r.bg;
+  document.getElementById('rb-name').textContent = role + ' · ' + r.name;
+  document.getElementById('rb-chip').textContent = role;
+  document.getElementById('rb-chip').className = 'chip ' + r.chip;
+  banner.style.opacity = '1';
+  banner.style.transform = 'translateX(-50%) translateY(0)';
+  await sleep(2400);
+  banner.style.opacity = '0';
+  banner.style.transform = 'translateX(-50%) translateY(-30px)';
+  await sleep(400);
+}
+
+// ── TYPETEXT ─────────────────────────────────────────────────────
+async function typeText(el, text, speed = 35) {
+  if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+    el.value = '';
+    for (const ch of text) {
+      if (ctrl.aborted) { el.value = text; return; }
+      await ctrl.waitIfPaused();
+      el.value += ch; await sleep(speed);
+    }
+  } else {
+    let node = el.querySelector('.__tn');
+    if (!node) { node = document.createElement('span'); node.className = '__tn'; el.insertBefore(node, el.firstChild); }
+    node.textContent = '';
+    for (const ch of text) {
+      if (ctrl.aborted) { node.textContent = text; return; }
+      await ctrl.waitIfPaused();
+      node.textContent += ch; await sleep(speed);
+    }
+  }
+}
+
+// ── AGENT ────────────────────────────────────────────────────────
+function setAgent(id, state, status) {
+  const el = document.getElementById(id); if (!el) return;
+  el.classList.remove('running', 'done');
+  if (state === 'running') el.classList.add('running');
+  if (state === 'done') el.classList.add('done');
+  const st = el.querySelector('.agent-status'); if (st && status) st.textContent = status;
+  el.querySelectorAll('.spinner,.check').forEach(n => n.remove());
+  if (state === 'running') { const s = document.createElement('div'); s.className = 'spinner'; el.appendChild(s); }
+  if (state === 'done') { const c = document.createElement('div'); c.className = 'check'; c.textContent = '✓'; el.appendChild(c); }
+}
+function appendLog(text) {
+  const el = document.getElementById('agent-log');
+  el.innerHTML += '<br>' + text; el.scrollTop = el.scrollHeight;
+}
+
+// ── SCORE ANIMATE ────────────────────────────────────────────────
+async function animateScore(barId, valId, target, color) {
+  const bar = document.getElementById(barId), val = document.getElementById(valId);
+  let cur = 0; const step = target / 40;
+  while (cur < target) {
+    cur = Math.min(cur + step, target);
+    bar.style.width = cur + '%'; bar.style.background = color;
+    val.style.color = color; val.textContent = Math.round(cur);
+    await sleep(22);
+  }
+}
+
+// ── STEP INFO ────────────────────────────────────────────────────
+function setStepInfo(label, n) {
+  document.getElementById('step-label').textContent = label;
+  document.getElementById('step-counter').textContent = n + ' / ' + STEPS.length;
+  setProgress(n / STEPS.length * 100);
+}
+
+// ── RESET ────────────────────────────────────────────────────────
+function resetDemo() {
+  // annotation
+  ['bbox1','bbox2','bbox3'].forEach(id => { const e=document.getElementById(id); if(e) e.style.opacity='0'; });
+  ['ann-record-1','ann-record-2','ann-record-3'].forEach(id => { const e=document.getElementById(id); if(e) e.style.opacity='0'; });
+  const ap = document.getElementById('ann-progress'); if(ap) ap.style.width='68%';
+  // generation
+  document.getElementById('optimized-prompt-area').style.display='none';
+  document.getElementById('post-result-card').style.display='none';
+  document.getElementById('validator-score-card').style.display='none';
+  document.getElementById('agent-log').textContent='等待任务启动...';
+  ['agent-orchestrator','agent-collector','agent-generator','agent-validator'].forEach(id=>setAgent(id,'idle',''));
+  ['step2','step3','step4','step5'].forEach((id,i) => {
+    const el=document.getElementById(id); if(el){el.className='step-node';el.textContent=String(i+2);}
+  });
+  ['step-line-2','step-line-3','step-line-4'].forEach(id => { const el=document.getElementById(id); if(el) el.classList.remove('done'); });
+  ['score-light','score-text','score-match'].forEach(id => { const el=document.getElementById(id); if(el) el.style.width='0%'; });
+  ['score-light-val','score-text-val','score-match-val'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='0'; });
+  const ts=document.getElementById('total-score'); if(ts){ts.textContent='0';ts.style.color='var(--green)';}
+  const pfb=document.getElementById('post-fake-badge'); if(pfb) pfb.style.display='none';
+  const prb=document.getElementById('post-real-badge'); if(prb) prb.style.display='none';
+  const pc=document.getElementById('post-caption'); if(pc) pc.textContent='正在生成...';
+  const pt=document.getElementById('post-tags'); if(pt) pt.innerHTML='';
+  const hea=document.getElementById('human-edit-area'); if(hea) hea.style.display='none';
+  const het=document.getElementById('human-edit-textarea'); if(het) het.value='';
+  const gs=document.getElementById('screen-generation'); if(gs) gs.scrollTop=0;
+  // restore prompt
+  (function(){
+    const po=document.getElementById('prompt-original'); if(!po) return;
+    po.querySelectorAll('.__tn').forEach(n=>n.remove());
+    Array.from(po.childNodes).forEach(n=>{if(n.nodeType===3)n.remove();});
+    const s=document.createElement('span'); s.className='__tn';
+    s.textContent='一个年轻女性在咖啡馆喝咖啡的照片';
+    po.insertBefore(s,po.firstChild);
+  })();
+  // qc
+  const qsc=document.getElementById('qc-status-chip'); if(qsc){qsc.textContent='待审核';qsc.className='chip chip-yellow';}
+  // task hall
+  ['th-claim-1','th-claim-2','th-claim-3'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.textContent='领取任务'; el.disabled=false; el.style.background=''; el.style.color='';
+  });
+  ['thcard-1','thcard-2','thcard-3'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.border='1px solid var(--border)'; el.style.boxShadow=''; el.style.transform='';
+  });
+  // dispatch
+  ['drow-1','drow-2','drow-3','drow-4'].forEach(id=>{
+    const row=document.getElementById(id); if(!row) return;
+    row.style.background=''; row.style.borderLeft='';
+    const chip=row.querySelector('.chip'); if(chip){chip.textContent='待分发';chip.className='chip chip-yellow';}
+  });
+  ['assign-1','assign-2','assign-3','assign-4'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.textContent='未分配'; el.style.color=''; el.style.fontWeight='';
+  });
+  ['person-lxm','person-why','person-t2i','person-zhy'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.style.border='1px solid var(--border)'; el.style.background='var(--surf2)';
+  });
+  const dp=document.getElementById('dispatch-preview'); if(dp) dp.innerHTML='点击任务和人员进行匹配';
+  // task create
+  ['tc-dataset','tc-count','tc-deadline'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const tcr=document.getElementById('tc-rule'); if(tcr) tcr.value='';
+  ['tc-p-count','tc-p-days','tc-p-people','tc-p-batch'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';});
+  const tpl=document.getElementById('task-preview-list'); if(tpl) tpl.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">填写左侧配置后自动生成任务列表</div>';
+  // sop
+  const sb=document.getElementById('sop-biz'); if(sb) sb.value='';
+  const sp=document.getElementById('sop-prompt'); if(sp) sp.value='';
+  const sc=document.getElementById('sop-cnt'); if(sc) sc.textContent='—';
+  const st=document.getElementById('sop-time'); if(st) st.textContent='—';
+  document.getElementById('th-sub').textContent='浏览并领取适合你的任务';
+  // T2I reset
+  (function(){
+    ['t2i-tok-1','t2i-tok-2','t2i-tok-3','t2i-tok-4'].forEach(id=>{
+      const el=document.getElementById(id); if(!el) return;
+      el.style.opacity='.4'; el.style.border='1px solid var(--border)'; el.style.background='var(--surf2)';
+    });
+    ['t2i-t1-grain','t2i-t1-halation','t2i-t1-vignette','t2i-t2-temp','t2i-t2-sat','t2i-t2-fade',
+     't2i-t3-era','t2i-t3-res','t2i-t3-iso','t2i-t4-lens','t2i-t4-dof','t2i-t4-rule'].forEach(id=>{
+      const el=document.getElementById(id); if(!el) return;
+      el.style.background='var(--surf)'; el.style.border='1px solid var(--border)'; el.style.color='var(--text2)';
+    });
+    ['t2i-cov-bar','t2i-prec-bar','t2i-align-bar'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.width='0%';});
+    ['t2i-cov','t2i-prec','t2i-align'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='0%';});
+    const ts=document.getElementById('t2i-score'); if(ts) ts.textContent='—';
+    const rc=document.getElementById('t2i-result-card'); if(rc) rc.style.display='none';
+    const op=document.getElementById('t2i-output-prompt'); if(op){op.querySelectorAll('.__tn').forEach(n=>n.remove());Array.from(op.childNodes).forEach(n=>{if(n.nodeType===3)n.remove();});}
+    const tp=document.getElementById('t2i-progress'); if(tp) tp.style.width='34%';
+  })();
+  // I2I reset
+  (function(){
+    ['i2i-map-1','i2i-map-2','i2i-map-3'].forEach(id=>{
+      const el=document.getElementById(id); if(!el) return;
+      el.style.opacity='.4'; el.style.border='1px solid var(--border)'; el.style.background='var(--surf2)';
+    });
+    ['i2i-m1-tag','i2i-m2-tag','i2i-m3-tag'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    const v=document.getElementById('i2i-verdict'); if(v) v.style.display='none';
+  })();
+  showScreen('dashboard');
+  document.getElementById('user-role-badge').textContent='项目经理';
+  document.getElementById('user-role-badge').className='chip chip-blue';
+  document.getElementById('user-name').textContent='王建国';
+  document.getElementById('user-avatar').textContent='王';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DEMO STEPS
+// ═══════════════════════════════════════════════════════════════════
+const STEPS = [
+
+// 0: 项目经理 · 总览
+async () => {
+  setStepInfo('📊 项目经理 王建国 · 工作台总览', 1);
+  await switchRole('项目经理');
+  showScreen('dashboard');
+  await sleep(800);
+  await moveCursorTo(window.innerWidth/2, window.innerHeight/2 - 40, '欢迎使用 OmniDataFlow', 700);
+  await sleep(1200);
+  await highlightEl(document.querySelector('.stats-row'));
+  await sleep(1200);
+},
+
+// 1: 项目经理 · 创建项目
+async () => {
+  setStepInfo('📁 项目经理 · 创建新标注项目', 2);
+  await clickAt(document.getElementById('btn-create-project'), '创建项目');
+  showModal();
+  await sleep(700);
+  const n = document.getElementById('m-name');
+  await moveCursorTo(n.getBoundingClientRect().left+10, n.getBoundingClientRect().top+14, '填写项目名称', 800);
+  await typeText(n, '客户A — 城市人物图像标注', 55);
+  await sleep(400);
+  const t = document.getElementById('m-type');
+  await moveCursorTo(t.getBoundingClientRect().left+10, t.getBoundingClientRect().top+14, '选择标注类型', 700);
+  await typeText(t, '图片 — 目标检测', 55);
+  await sleep(400);
+  const c = document.getElementById('m-count');
+  await moveCursorTo(c.getBoundingClientRect().left+10, c.getBoundingClientRect().top+14, '设置任务数', 700);
+  await typeText(c, '600', 80);
+  await sleep(600);
+  await clickAt(document.getElementById('modal-confirm'), '确认创建');
+  showToast('项目创建成功 ✨', '📁');
+  await sleep(1800);
+},
+
+// 2: 48h SOP实验室 — 快速建立标注标准
+async () => {
+  setStepInfo('⚡ 项目经理 · 48h SOP实验室 — 快速建标准', 3);
+  await clickAt(document.getElementById('sb-sop'), '进入SOP实验室');
+  showScreen('sop');
+  await sleep(900);
+  await highlightEl(document.querySelector('#sop-breakdown'));
+  await sleep(800);
+  const biz = document.getElementById('sop-biz');
+  await moveCursorTo(biz.getBoundingClientRect().left+10, biz.getBoundingClientRect().top+14, '填写业务类型', 800);
+  await typeText(biz, 'Midjourney 复古风格图片标注', 45);
+  await sleep(500);
+  const prompt = document.getElementById('sop-prompt');
+  await moveCursorTo(prompt.getBoundingClientRect().left+10, prompt.getBoundingClientRect().top+20, '导入Prompt模板', 800);
+  await typeText(prompt, '胶片质感+暖黄滤镜+颗粒感+90年代低像素 [vintage, film grain, warm tone]', 28);
+  await sleep(500);
+  document.getElementById('sop-cnt').textContent = '30';
+  document.getElementById('sop-time').textContent = '4';
+  await sleep(600);
+  // Highlight token breakdown
+  const tokens = document.querySelectorAll('.annotation-token');
+  for (const tok of tokens) {
+    tok.classList.add('highlight');
+    await moveCursorTo(tok.getBoundingClientRect().left + tok.getBoundingClientRect().width/2,
+      tok.getBoundingClientRect().top + 14, '风格参数拆解', 600);
+    await sleep(500);
+    tok.classList.remove('highlight');
+  }
+  await clickAt(document.getElementById('btn-launch-sop'), '发布标准');
+  showToast('SOP已发布！标准可在48h内迭代完成', '⚡');
+  await sleep(1800);
+},
+
+// 3: 项目经理 · 创建任务批次
+async () => {
+  setStepInfo('➕ 项目经理 · 为项目创建标注任务', 4);
+  await clickAt(document.getElementById('sb-task-create'), '创建任务');
+  showScreen('taskcreate');
+  await sleep(800);
+  await highlightEl(document.getElementById('task-create-form'));
+  await sleep(600);
+  const ds = document.getElementById('tc-dataset');
+  await moveCursorTo(ds.getBoundingClientRect().left+10, ds.getBoundingClientRect().top+14, '选择数据集', 800);
+  await typeText(ds, '城市街景数据集_v3.zip · 600张', 40);
+  await sleep(400);
+  const cnt = document.getElementById('tc-count');
+  await moveCursorTo(cnt.getBoundingClientRect().left+10, cnt.getBoundingClientRect().top+14, '设置任务数量', 700);
+  await typeText(cnt, '200', 80);
+  await sleep(400);
+  const dl = document.getElementById('tc-deadline');
+  await moveCursorTo(dl.getBoundingClientRect().left+10, dl.getBoundingClientRect().top+14, '设置截止日期', 700);
+  await typeText(dl, '2026-04-01', 55);
+  await sleep(400);
+  const rule = document.getElementById('tc-rule');
+  await moveCursorTo(rule.getBoundingClientRect().left+10, rule.getBoundingClientRect().top+18, '填写标注规则', 700);
+  await typeText(rule, '请框选图像中所有行人目标，标注遮挡比例（无/部分/严重），每图至少标注1个目标', 25);
+  await sleep(600);
+  document.getElementById('tc-p-count').textContent='200';
+  document.getElementById('tc-p-days').textContent='3';
+  document.getElementById('tc-p-people').textContent='8';
+  document.getElementById('tc-p-batch').textContent='25';
+  const tpl = document.getElementById('task-preview-list');
+  tpl.innerHTML = '';
+  [{id:'#ANN-2401',r:'001–200条',b:'批次1/3'},{id:'#ANN-2402',r:'201–400条',b:'批次2/3'},{id:'#ANN-2403',r:'401–600条',b:'批次3/3'}]
+    .forEach(p => {
+      const d = document.createElement('div');
+      d.style.cssText='background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:6px';
+      d.innerHTML=`<span style="font-family:'Space Mono',monospace;color:var(--accent)">${p.id}</span><span style="color:var(--text2)">${p.r}</span><span class="chip chip-blue" style="font-size:10px">${p.b}</span>`;
+      tpl.appendChild(d);
+    });
+  await sleep(800);
+  await highlightEl(document.getElementById('task-preview-list'));
+  await sleep(1000);
+  await clickAt(document.getElementById('btn-save-tasks'), '保存并发布任务');
+  showToast('✅ 3批任务已创建，进入待分发池', '➕');
+  await sleep(1800);
+},
+
+// 4: 项目经理 · 任务分发
+async () => {
+  setStepInfo('📡 项目经理 · 分发任务给标注员和创作员', 5);
+  await clickAt(document.getElementById('sb-task-dispatch'), '任务分发中心');
+  showScreen('taskdispatch');
+  await sleep(1000);
+  await highlightEl(document.getElementById('dispatch-tbody'));
+  await sleep(800);
+
+  // 分配 #T2I-0301 → 赵小文
+  const row3=document.getElementById('drow-3');
+  await moveCursorTo(row3.getBoundingClientRect().left+row3.getBoundingClientRect().width*0.5, row3.getBoundingClientRect().top+14, '选择 T2I Prompt任务', 800);
+  row3.style.background='rgba(245,158,11,.06)';
+  const t2i=document.getElementById('person-t2i');
+  await moveCursorTo(t2i.getBoundingClientRect().left+60, t2i.getBoundingClientRect().top+18, '分配给 赵小文（T2I专项）', 800);
+  t2i.style.border='1px solid var(--yellow)'; t2i.style.background='rgba(245,158,11,.08)';
+  cursor.classList.add('clicking'); await sleep(220);
+  document.getElementById('assign-3').textContent='赵小文';
+  document.getElementById('assign-3').style.color='var(--yellow)';
+  document.getElementById('assign-3').style.fontWeight='600';
+  document.getElementById('drow-3').querySelector('.chip').textContent='已分配';
+  document.getElementById('drow-3').querySelector('.chip').className='chip chip-green';
+  cursor.classList.remove('clicking'); await sleep(600);
+
+  // 分配 #GEN-0801 → 张海燕
+  const row4=document.getElementById('drow-4');
+  await moveCursorTo(row4.getBoundingClientRect().left+row4.getBoundingClientRect().width*0.5, row4.getBoundingClientRect().top+14, '选择内容生成任务', 800);
+  row4.style.background='rgba(124,58,237,.06)';
+  const zhy=document.getElementById('person-zhy');
+  await moveCursorTo(zhy.getBoundingClientRect().left+60, zhy.getBoundingClientRect().top+18, '分配给 张海燕', 800);
+  zhy.style.border='1px solid var(--accent2)'; zhy.style.background='rgba(124,58,237,.08)';
+  cursor.classList.add('clicking'); await sleep(220);
+  document.getElementById('assign-4').textContent='张海燕';
+  document.getElementById('assign-4').style.color='var(--accent2)';
+  document.getElementById('assign-4').style.fontWeight='600';
+  document.getElementById('drow-4').querySelector('.chip').textContent='已分配';
+  document.getElementById('drow-4').querySelector('.chip').className='chip chip-green';
+  cursor.classList.remove('clicking'); await sleep(600);
+
+  await clickAt(document.getElementById('btn-confirm-dispatch'), '确认分发');
+  document.getElementById('dispatch-preview').innerHTML='<div style="font-size:12px;line-height:2;color:var(--text2)">✅ #T2I-0301 → <span style="color:var(--yellow)">赵小文</span><br>✅ #I2I-0101 → <span style="color:rgba(236,72,153,.9)">陈晓雯</span><br>✅ #GEN-0801 → <span style="color:var(--accent2)">张海燕</span></div>';
+  showToast('🚀 任务分发完成！T2I·I2I·创作 三路并行', '📡');
+  await sleep(2200);
+},
+
+// 10: 角色切换 → 赵小文 · T2I Prompt标注任务大厅领取
+async () => {
+  setStepInfo('🏛️ 角色切换 → 标注员 赵小文 · 领取 T2I Prompt标注任务', 6);
+  // Temporarily show as 赵小文
+  document.getElementById('user-role-badge').textContent='标注员';
+  document.getElementById('user-role-badge').className='chip chip-green';
+  document.getElementById('user-name').textContent='赵小文';
+  document.getElementById('user-avatar').textContent='赵';
+  const banner=document.getElementById('role-banner');
+  document.getElementById('rb-avatar').textContent='赵';
+  document.getElementById('rb-avatar').style.background='linear-gradient(135deg,var(--yellow),#d97706)';
+  document.getElementById('rb-name').textContent='标注员 · 赵小文（T2I专项）';
+  document.getElementById('rb-chip').textContent='标注员';
+  document.getElementById('rb-chip').className='chip chip-yellow';
+  banner.style.opacity='1'; banner.style.transform='translateX(-50%) translateY(0)';
+  await sleep(2400);
+  banner.style.opacity='0'; banner.style.transform='translateX(-50%) translateY(-30px)';
+  await sleep(400);
+  await clickAt(document.getElementById('sb-taskhall'), '任务大厅');
+  showScreen('taskhall');
+  document.getElementById('th-sub').textContent='赵小文，你好！T2I Prompt标注任务已分配给你';
+  await sleep(700);
+  const card2=document.getElementById('thcard-2');
+  await moveCursorTo(card2.getBoundingClientRect().left+card2.getBoundingClientRect().width/2, card2.getBoundingClientRect().top+50, '查看T2I任务', 800);
+  card2.style.border='1px solid var(--yellow)'; card2.style.boxShadow='0 0 16px rgba(245,158,11,.2)';
+  await sleep(700);
+  await clickAt(document.getElementById('th-claim-2'), '领取T2I任务');
+  const b2=document.getElementById('th-claim-2');
+  b2.textContent='✅ 已领取'; b2.disabled=true; b2.style.background='var(--surf2)'; b2.style.color='var(--yellow)';
+  showToast('#T2I-0301 已领取，前往文生图标注工作台', '🖼️');
+  await sleep(1800);
+},
+
+// 11: T2I 文生图标注工作台 — 逐Token拆解
+async () => {
+  setStepInfo('🖼️ 文生图 Prompt 标注 · 将"复古风"拆解为可训练Token', 7);
+  showScreen('t2i');
+  await sleep(900);
+  await highlightEl(document.getElementById('t2i-raw-prompt'));
+  await sleep(1000);
+
+  // Activate and annotate each token row
+  const tokenData = [
+    { rowId:'t2i-tok-1', tags:['t2i-t1-grain','t2i-t1-halation','t2i-t1-vignette'],
+      color:'rgba(79,140,255,.9)', borderColor:'var(--accent)', cov:25, prec:88, align:72 },
+    { rowId:'t2i-tok-2', tags:['t2i-t2-temp','t2i-t2-sat','t2i-t2-fade'],
+      color:'rgba(245,158,11,.9)', borderColor:'var(--yellow)', cov:50, prec:91, align:80 },
+    { rowId:'t2i-tok-3', tags:['t2i-t3-era','t2i-t3-res','t2i-t3-iso'],
+      color:'rgba(124,58,237,.9)', borderColor:'var(--accent2)', cov:75, prec:93, align:86 },
+    { rowId:'t2i-tok-4', tags:['t2i-t4-lens','t2i-t4-dof','t2i-t4-rule'],
+      color:'rgba(16,185,129,.9)', borderColor:'var(--green)', cov:100, prec:95, align:92 },
+  ];
+
+  for (const td of tokenData) {
+    const row=document.getElementById(td.rowId);
+    row.style.opacity='1';
+    row.style.border='1px solid ' + td.borderColor;
+    row.style.background='rgba(79,140,255,.04)';
+    await highlightEl(row, 600);
+    // Click each tag param
+    for (const tagId of td.tags) {
+      const tag=document.getElementById(tagId);
+      await moveCursorTo(tag.getBoundingClientRect().left+tag.getBoundingClientRect().width/2,
+        tag.getBoundingClientRect().top+12, '确认参数', 650);
+      cursor.classList.add('clicking'); await sleep(180);
+      tag.style.background=td.borderColor.replace('var(--','rgba(').replace(')',', .15)');
+      tag.style.border='1px solid ' + td.borderColor;
+      tag.style.color='#fff';
+      cursor.classList.remove('clicking'); await sleep(280);
+    }
+    // Update metrics
+    const animBar = async (barId, valId, target, color) => {
+      const bar=document.getElementById(barId), val=document.getElementById(valId);
+      let c=parseInt(bar.style.width)||0;
+      while(c<target){c++;bar.style.width=c+'%';bar.style.background=color;val.textContent=c+'%';await sleep(14);}
+    };
+    await Promise.all([
+      animBar('t2i-cov-bar','t2i-cov', td.cov, 'var(--green)'),
+      animBar('t2i-prec-bar','t2i-prec', td.prec, 'var(--accent)'),
+      animBar('t2i-align-bar','t2i-align', td.align, 'var(--yellow)'),
+    ]);
+    await sleep(400);
+  }
+
+  // Show result
+  document.getElementById('t2i-score').textContent='94';
+  document.getElementById('t2i-result-card').style.display='block';
+  await typeText(document.getElementById('t2i-output-prompt'),
+    'grain:0.35, halation:0.2, vignette:0.4,\ncolor_temp:+800K, saturation:-30%, fade:0.15,\nera:1990s, resolution:lo-fi, ISO:3200,\nlens:35mm, dof:shallow, rule_of_thirds:on', 22);
+  await sleep(800);
+  showToast('T2I Token序列标注完成！已入训练数据集 ✅', '🖼️');
+  await sleep(1600);
+},
+
+// 12: 提交 T2I 标注
+async () => {
+  setStepInfo('✅ T2I 标注员 · 提交 Prompt Token 标注', 8);
+  await clickAt(document.getElementById('btn-submit-t2i'), '提交T2I标注');
+  document.getElementById('t2i-progress').style.width='36%';
+  showToast('#T2I-0301 标注已提交，进入 LoRA 训练队列', '📦');
+  await sleep(2000);
+},
+
+// 13: I2I 图生图标注 — 风格迁移映射
+async () => {
+  setStepInfo('🎨 角色切换 → 标注员 陈晓雯 · 领取 I2I 风格迁移标注任务', 9);
+  // Switch to I2I annotator
+  document.getElementById('user-role-badge').textContent='标注员';
+  document.getElementById('user-role-badge').className='chip chip-green';
+  document.getElementById('user-name').textContent='陈晓雯';
+  document.getElementById('user-avatar').textContent='陈';
+  const banner=document.getElementById('role-banner');
+  document.getElementById('rb-avatar').textContent='陈';
+  document.getElementById('rb-avatar').style.background='linear-gradient(135deg,var(--pink),var(--accent2))';
+  document.getElementById('rb-name').textContent='标注员 · 陈晓雯（I2I专项）';
+  document.getElementById('rb-chip').textContent='标注员';
+  document.getElementById('rb-chip').className='chip chip-green';
+  banner.style.opacity='1'; banner.style.transform='translateX(-50%) translateY(0)';
+  await sleep(2200);
+  banner.style.opacity='0'; banner.style.transform='translateX(-50%) translateY(-30px)';
+  await sleep(400);
+
+  // Task hall → claim I2I task
+  await clickAt(document.getElementById('sb-taskhall'), '任务大厅');
+  showScreen('taskhall');
+  document.getElementById('th-sub').textContent='陈晓雯，你好！I2I 风格迁移标注任务已分配给你';
+  await sleep(700);
+  const card5=document.getElementById('thcard-5');
+  await moveCursorTo(card5.getBoundingClientRect().left+card5.getBoundingClientRect().width/2, card5.getBoundingClientRect().top+50, '查看I2I任务', 800);
+  card5.style.border='1px solid var(--pink)'; card5.style.boxShadow='0 0 16px rgba(236,72,153,.2)';
+  await sleep(700);
+  await clickAt(document.getElementById('th-claim-5'), '领取I2I任务');
+  const b5=document.getElementById('th-claim-5');
+  b5.textContent='✅ 已领取'; b5.disabled=true; b5.style.background='var(--surf2)'; b5.style.color='var(--pink)';
+  showToast('#I2I-0101 已领取，前往图生图标注工作台', '🎨');
+  await sleep(1800);
+
+  setStepInfo('🎨 I2I 图生图 · 水墨风→赛博朋克 风格迁移映射标注', 10);
+  showScreen('i2i');
+  await sleep(900);
+
+  // Highlight source then target
+  await highlightEl(document.getElementById('i2i-source-img'), 800);
+  await sleep(500);
+  await moveCursorTo(window.innerWidth * 0.65, window.innerHeight * 0.45, '对比目标风格', 900);
+  await sleep(700);
+
+  // Annotate each mapping dimension
+  const maps = [
+    { id:'i2i-map-1', tagId:'i2i-m1-tag', label:'色彩映射：暖棕无彩 → 深紫+霓虹青', borderColor:'rgba(0,255,200,.5)' },
+    { id:'i2i-map-2', tagId:'i2i-m2-tag', label:'构图转换：留白山水 → 高楼密布', borderColor:'rgba(255,0,180,.4)' },
+    { id:'i2i-map-3', tagId:'i2i-m3-tag', label:'光源质感：墨色漫反射 → 霓虹点光+雨纹', borderColor:'rgba(79,140,255,.5)' },
+  ];
+
+  for (const m of maps) {
+    const mapEl=document.getElementById(m.id);
+    mapEl.style.opacity='1';
+    mapEl.style.border='1px solid ' + m.borderColor;
+    mapEl.style.background='rgba(0,255,200,.03)';
+    const r=mapEl.getBoundingClientRect();
+    await moveCursorTo(r.left+r.width/2, r.top+r.height/2, m.label, 850);
+    await highlightEl(mapEl, 700);
+    cursor.classList.add('clicking'); await sleep(220);
+    cursor.classList.remove('clicking');
+    document.getElementById(m.tagId).style.display='block';
+    await sleep(700);
+  }
+
+  // Show verdict
+  document.getElementById('i2i-verdict').style.display='block';
+  await sleep(600);
+  showToast('I2I 风格迁移映射标注完成！进入 ControlNet 训练集 ✅', '🎨');
+  await sleep(1800);
+},
+
+// 14: 提交 I2I 标注
+async () => {
+  setStepInfo('✅ I2I 标注员 · 提交风格迁移标注', 11);
+  await clickAt(document.getElementById('btn-submit-i2i'), '提交I2I标注');
+  showToast('#I2I-0101 已提交，降低MCN返工 >70%', '📦');
+  await sleep(2000);
+},
+
+// 15: 角色切换 → 创作员 · 任务大厅
+async () => {
+  setStepInfo('🏛️ 角色切换 → 创作人员 张海燕 · 任务大厅', 12);
+  await switchRole('创作人员');
+  await clickAt(document.getElementById('sb-taskhall'), '任务大厅');
+  showScreen('taskhall');
+  document.getElementById('th-sub').textContent='张海燕，你好！以下是你的内容创作任务';
+  await sleep(800);
+  const gen=document.getElementById('thcard-3');
+  await moveCursorTo(gen.getBoundingClientRect().left+gen.getBoundingClientRect().width/2, gen.getBoundingClientRect().top+50, '内容生成任务', 800);
+  gen.style.border='1px solid var(--accent2)'; gen.style.boxShadow='0 0 16px rgba(124,58,237,.2)';
+  await sleep(700);
+  await clickAt(document.getElementById('th-claim-3'), '领取创作任务');
+  const b=document.getElementById('th-claim-3');
+  b.textContent='✅ 已领取'; b.disabled=true; b.style.background='var(--surf2)'; b.style.color='var(--accent2)';
+  showToast('#GEN-0801 已领取，前往内容创作工作台', '✨');
+  await sleep(2000);
+},
+
+// 11: 创作员 · 进入生成工作台
+async () => {
+  setStepInfo('✨ 创作人员 张海燕 · 内容生成工作台', 13);
+  await clickAt(document.querySelector('[data-screen="generation"]'), '内容生成');
+  showScreen('generation');
+  await sleep(1000);
+  await highlightEl(document.getElementById('prompt-card'));
+  await sleep(800);
+},
+
+// 12: AI Auto-Finetune
+async () => {
+  setStepInfo('🪄 创作人员 · AI Auto-Finetune 优化 Prompt', 14);
+  await moveCursorTo(
+    document.getElementById('btn-auto-finetune').getBoundingClientRect().left+40,
+    document.getElementById('btn-auto-finetune').getBoundingClientRect().top+14,
+    '查看原始Prompt', 900);
+  await sleep(900);
+  await clickAt(document.getElementById('btn-auto-finetune'), '一键优化Prompt');
+  await sleep(400);
+  document.getElementById('cursor-blink').style.display='inline-block';
+  await sleep(1000);
+  document.getElementById('optimized-prompt-area').style.display='block';
+  await typeText(document.getElementById('prompt-optimized'), '一位25-30岁女性，在阳光斑驳的独立咖啡馆窗边，手捧拿铁，穿宽松白衬衫和牛仔裤，神情放松微笑，自然散发的发丝，iPhone随手拍风格，f/1.8虚化背景，颗粒感胶片质感，非摆拍', 28);
+  document.getElementById('finetune-reason').textContent='🔧 优化点：①增加人物细节 ②添加iPhone随手拍风格锚点 ③规避"完美光影"等AI典型特征 ④补充胶片颗粒真实质感';
+  document.getElementById('cursor-blink').style.display='none';
+  await sleep(800);
+  showToast('Prompt已优化，AI感降低约 40%', '✨');
+  await sleep(1600);
+},
+
+// 13: 第一次生成（评分低，创作员不满意）
+async () => {
+  setStepInfo('🤖 Multi-Agent · 第一次生成（创作员不满意）', 15);
+  await clickAt(document.getElementById('btn-gen-start'), '启动生成');
+  await sleep(300);
+  document.getElementById('step2').className='step-node done'; document.getElementById('step2').textContent='✓';
+  document.getElementById('step-line-2').classList.add('done');
+  document.getElementById('step3').className='step-node active';
+  document.getElementById('agent-log').textContent='[Orchestrator] 启动内容生成任务...';
+  setAgent('agent-orchestrator','running','分析任务需求，制定生成策略...');
+  await sleep(1500);
+  setAgent('agent-orchestrator','done','策略制定完成');
+  setAgent('agent-collector','running','收集咖啡馆参考素材...');
+  appendLog('[Collector] 检索素材库: coffee shop, natural light...');
+  await sleep(1600);
+  setAgent('agent-collector','done','收集 47 条参考素材');
+  setAgent('agent-generator','running','基于优化Prompt生成Post...');
+  appendLog('[Generator] 调用图像生成模型，融入参考素材风格...');
+  await sleep(1800);
+  setAgent('agent-generator','done','初稿生成完成');
+  setAgent('agent-validator','running','评估图文真实性...');
+  appendLog('[Validator] 分析光影自然度、措辞真实性、图文匹配度...');
+  await sleep(1500);
+  document.getElementById('validator-score-card').style.display='block';
+  await animateScore('score-light','score-light-val',62,'var(--yellow)');
+  await animateScore('score-text','score-text-val',78,'var(--green)');
+  await animateScore('score-match','score-match-val',68,'var(--yellow)');
+  const te=document.getElementById('total-score'); te.style.color='var(--yellow)';
+  let tot=0; while(tot<69){tot++;te.textContent=tot;await sleep(18);}
+  setAgent('agent-validator','done','⚠️ 综合评分 69，存在AI痕迹');
+  appendLog('[Validator] ⚠️ 光影自然度偏低，建议重新生成');
+  await sleep(800);
+},
+
+// 14: 展示第一次结果 → 不满意 → 重新生成
+async () => {
+  setStepInfo('🖼️ 创作人员审阅 · 不满意，要求重新生成', 16);
+  document.getElementById('step3').className='step-node done'; document.getElementById('step3').textContent='✓';
+  document.getElementById('step-line-3').classList.add('done');
+  document.getElementById('step4').className='step-node active';
+  document.getElementById('post-result-card').style.display='block';
+  document.getElementById('post-fake-badge').style.display='block';
+  await typeText(document.getElementById('post-caption'), '☕ 在咖啡馆工作，享受下午的宁静时光。阳光透过窗户洒进来，一切都是那么美好，生活需要这样的仪式感。', 28);
+  document.getElementById('post-tags').innerHTML='<span class="post-tag">#咖啡</span><span class="post-tag">#下午茶</span><span class="post-tag">#慢生活</span>';
+  const gs=document.getElementById('screen-generation');
+  gs.scrollTo({top:500,behavior:'smooth'});
+  await sleep(900);
+  await highlightEl(document.getElementById('post-result-card'));
+  await sleep(1600);
+  await moveCursorTo(
+    document.getElementById('post-fake-badge').getBoundingClientRect().left+30,
+    document.getElementById('post-fake-badge').getBoundingClientRect().top+10,
+    '⚠️ 感觉还是有点假...', 900);
+  await sleep(1300);
+  gs.scrollTo({top:700,behavior:'smooth'});
+  await sleep(600);
+  await clickAt(document.getElementById('btn-regen-post'), '要求AI重新生成');
+  showToast('已反馈给AI，重新生成中...', '🔄');
+  await sleep(600);
+},
+
+// 15: AI第二次生成（评分高）
+async () => {
+  setStepInfo('🔄 Multi-Agent · 根据反馈重新生成', 17);
+  ['agent-orchestrator','agent-collector','agent-generator','agent-validator'].forEach(id=>setAgent(id,'idle',''));
+  document.getElementById('post-fake-badge').style.display='none';
+  document.getElementById('post-result-card').style.display='none';
+  document.getElementById('screen-generation').scrollTo({top:0,behavior:'smooth'});
+  await sleep(700);
+  appendLog('[Orchestrator] 接收反馈：图片AI感偏强，调整策略...');
+  setAgent('agent-orchestrator','running','根据Human反馈调整生成策略...');
+  await sleep(1300);
+  setAgent('agent-orchestrator','done','策略已调整：强化真实感参数');
+  setAgent('agent-collector','running','重新收集真实感素材...');
+  appendLog('[Collector] 筛选真实摄影素材，降低AI风格权重...');
+  await sleep(1400);
+  setAgent('agent-collector','done','素材更新：真实摄影参考×23');
+  setAgent('agent-generator','running','第二次生成，强化胶片感与自然光...');
+  appendLog('[Generator] 应用胶片颗粒感、自然散射光、非对称构图...');
+  await sleep(1800);
+  setAgent('agent-generator','done','第二版初稿完成');
+  setAgent('agent-validator','running','重新验证真实性...');
+  appendLog('[Validator] 重新评估...');
+  await sleep(1500);
+  ['score-light','score-text','score-match'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.width='0%'; });
+  ['score-light-val','score-text-val','score-match-val'].forEach(id=>{ const e=document.getElementById(id); if(e) e.textContent='0'; });
+  document.getElementById('total-score').textContent='0'; document.getElementById('total-score').style.color='var(--green)';
+  await animateScore('score-light','score-light-val',88,'var(--green)');
+  await animateScore('score-text','score-text-val',92,'var(--green)');
+  await animateScore('score-match','score-match-val',85,'var(--green)');
+  let t2=0; const te2=document.getElementById('total-score');
+  while(t2<88){t2++;te2.textContent=t2;await sleep(15);}
+  setAgent('agent-validator','done','✅ 综合评分 88，真实感优秀');
+  appendLog('[Orchestrator] ✅ 第二版质量优秀，呈现给创作人员');
+  await sleep(900);
+},
+
+// 16: Human in Loop 编辑后提交
+async () => {
+  setStepInfo('✏️ 创作人员 · 满意！Human in Loop 小修改后提交', 18);
+  document.getElementById('post-result-card').style.display='block';
+  document.getElementById('post-real-badge').style.display='block';
+  const gs=document.getElementById('screen-generation');
+  gs.scrollTo({top:500,behavior:'smooth'});
+  await sleep(700);
+  await typeText(document.getElementById('post-caption'), '☕ 午后阳光与一杯拿铁，这就是我理想的工作日下午 🌿 最近爱上了这家角落小店，每次来都点同一款，生活就该有点仪式感～', 25);
+  document.getElementById('post-tags').innerHTML='<span class="post-tag">#咖啡时光</span><span class="post-tag">#慢生活</span><span class="post-tag">#下午茶</span><span class="post-tag">#OOTD</span>';
+  await sleep(1000);
+  await highlightEl(document.getElementById('post-result-card'));
+  gs.scrollTo({top:800,behavior:'smooth'});
+  await sleep(800);
+  await clickAt(document.getElementById('btn-edit-post'), '✏️ 打开Human编辑');
+  showToast('Human-in-the-Loop 编辑模式已开启', '✏️');
+  await sleep(600);
+  document.getElementById('human-edit-area').style.display='block';
+  gs.scrollTo({top:1100,behavior:'smooth'});
+  await sleep(800);
+  const ea=document.getElementById('human-edit-textarea');
+  await moveCursorTo(ea.getBoundingClientRect().left+20, ea.getBoundingClientRect().top+22, '修改文案细节', 900);
+  await typeText(ea, '☕ 午后阳光与一杯拿铁，这就是我最爱的工作日下午 🌿 这家转角小店藏在巷子里，每次来都点同一款，生活嘛，就得有点专属的仪式感～', 28);
+  await sleep(1000);
+  await clickAt(document.getElementById('btn-confirm-edit'), '确认修改');
+  showToast('文案已更新 ✅', '✏️');
+  await sleep(800);
+  gs.scrollTo({top:600,behavior:'smooth'});
+  await sleep(2800); // 停留看最终post
+  // 提交
+  document.getElementById('step4').className='step-node done'; document.getElementById('step4').textContent='✓';
+  document.getElementById('step-line-4').classList.add('done');
+  document.getElementById('step5').className='step-node active';
+  gs.scrollTo({top:900,behavior:'smooth'});
+  await sleep(600);
+  await clickAt(document.getElementById('btn-submit-post'), '提交质检');
+  showToast('Post 已提交质检队列 📤', '📤');
+  await sleep(3200); // 提交后停留
+},
+
+// 17: 角色切换 → 质检员 · 任务大厅 → 质检工作台
+async () => {
+  setStepInfo('🏛️ 角色切换 → 质检人员 陈建军 · 任务大厅', 19);
+  await switchRole('质检人员');
+  await clickAt(document.getElementById('sb-taskhall'), '任务大厅');
+  showScreen('taskhall');
+  document.getElementById('th-sub').textContent='陈建军，你好！待审核Post队列已更新';
+  await sleep(800);
+  await highlightEl(document.getElementById('thcard-3'));
+  await sleep(800);
+  await clickAt(document.querySelector('[data-screen="qc"]'), '进入质检工作台');
+  showScreen('qc');
+  await sleep(1200);
+  await highlightEl(document.querySelector('.card'));
+  await sleep(1000);
+},
+
+// 18: 质检 — 精准评审
+async () => {
+  setStepInfo('🔬 质检人员 · 精准评审 & 品牌调性校准', 20);
+  const dims=['qc-dim-1','qc-dim-2','qc-dim-3','qc-dim-4'];
+  for (const id of dims) {
+    const dim=document.getElementById(id);
+    await moveCursorTo(dim.getBoundingClientRect().left+60, dim.getBoundingClientRect().top+18, '逐项评审', 700);
+    await highlightEl(dim,700);
+    await sleep(700);
+  }
+  await sleep(400);
+  await highlightEl(document.getElementById('qc-feedback'));
+  await sleep(600);
+  await clickAt(document.getElementById('btn-qc-reject'), '打回修改');
+  showToast('已打回！创作人员收到精准标注反馈', '↩️');
+  await sleep(1600);
+},
+
+// 19: 质检通过下一条
+async () => {
+  setStepInfo('✅ 质检人员 · 下一条 Post — 审核通过', 21);
+  document.getElementById('qc-status-chip').textContent='已通过';
+  document.getElementById('qc-status-chip').className='chip chip-green';
+  await clickAt(document.getElementById('btn-qc-pass'), '标记通过');
+  showToast('Post 通过质检，上线就绪 🎉', '✅');
+  await sleep(1800);
+},
+
+// 20: 项目经理 · 查看统计
+async () => {
+  setStepInfo('📈 角色切换 → 项目经理 · 查看成功指标', 22);
+  await switchRole('项目经理');
+  await clickAt(document.querySelector('[data-screen="stats"]'), '工作量统计');
+  showScreen('stats');
+  await sleep(900);
+  await highlightEl(document.querySelector('.stats-row'));
+  await sleep(900);
+  await clickAt(document.getElementById('btn-filter-day'), '按日查看');
+  await sleep(600);
+  await highlightEl(document.querySelector('.chart-area'));
+  await sleep(1400);
+},
+
+// 21: 回到总览 · 结束
+async () => {
+  setStepInfo('🏁 项目经理 · 全局总览 — Demo 完成', 23);
+  await clickAt(document.querySelector('[data-screen="dashboard"]'), '回到总览');
+  showScreen('dashboard');
+  await sleep(700);
+  await highlightEl(document.querySelector('.stats-row'));
+  showToast('🎉 OmniDataFlow 全流程演示完成！', '🎯');
+  await sleep(2000);
+  cursorLabel.style.opacity='0';
+  document.getElementById('play-btn').textContent='▶ 重播 Demo';
+  document.getElementById('step-label').textContent='✅ 演示完成 — 全流程已覆盖';
+}
+
+];
+
+// ── MAIN RUNNER ───────────────────────────────────────────────────
+document.getElementById('step-counter').textContent = '0 / ' + STEPS.length;
+setProgress(0);
+
+let running = false;
+let currentStep = 0;
+
+function setUIRunning(yes) {
+  const pb = document.getElementById('play-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+  pb.disabled = yes;
+  pauseBtn.style.display = yes ? 'inline-block' : 'none';
+  if (!yes) pb.disabled = false;
+}
+
+async function runFromStep(startIdx) {
+  ctrl.reset();
+  running = true;
+  currentStep = startIdx;
+  document.getElementById('play-btn').textContent = '⏳ 演示中...';
+  setUIRunning(true);
+  for (let i = startIdx; i < STEPS.length; i++) {
+    if (ctrl.aborted) break;
+    await ctrl.waitIfPaused();
+    if (ctrl.aborted) break;
+    currentStep = i;
+    setProgress(Math.round((i + 1) / STEPS.length * 100));
+    document.getElementById('step-counter').textContent = (i + 1) + ' / ' + STEPS.length;
+    await STEPS[i]();
+    if (ctrl.aborted) break;
+    await sleep(300);
+  }
+  running = false;
+  ctrl.paused = false;
+  setUIRunning(false);
+  if (!ctrl.aborted) {
+    setProgress(100);
+    document.getElementById('play-btn').textContent = '▶ 重播 Demo';
+    document.getElementById('step-label').textContent = '✅ 演示完成 — 全流程已覆盖';
+  }
+}
+
+// Play / Replay
+document.getElementById('play-btn').addEventListener('click', async () => {
+  if (running) return;
+  ctrl.reset();
+  const isReplay = document.getElementById('play-btn').textContent.includes('重播');
+  if (isReplay) { resetDemo(); await sleep(300); }
+  await runFromStep(isReplay ? 0 : currentStep);
+});
+
+// Pause / Resume
+document.getElementById('pause-btn').addEventListener('click', function() {
+  if (!running) return;
+  if (ctrl.paused) {
+    ctrl.resume();
+    this.textContent = '⏸ 暂停';
+  } else {
+    ctrl.pause();
+    this.textContent = '▶ 继续';
+  }
+});
+
+// ── SCRUBBER (custom div — no browser range jitter) ─────────────
+function setProgress(pct) {
+  pct = Math.max(0, Math.min(100, pct));
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('scrubber-thumb').style.left = pct + '%';
+}
+
+function pctFromEvent(e, track) {
+  const r = track.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  return Math.max(0, Math.min(100, (clientX - r.left) / r.width * 100));
+}
+
+let scrubbing = false;
+const scrubTrack = document.getElementById('scrubber-track');
+
+async function doScrubJump(pct) {
+  const targetStep = Math.round(pct / 100 * (STEPS.length - 1));
+  // Abort current run, then wait via native setTimeout (not our sleep) so we don't spin
+  ctrl.abort();
+  await new Promise(r => setTimeout(r, 80));
+  // Force-clear running in case step didn't exit cleanly
+  running = false;
+  ctrl.reset();
+  resetDemo();
+  setProgress(pct);
+  document.getElementById('step-counter').textContent = targetStep + ' / ' + STEPS.length;
+  await new Promise(r => setTimeout(r, 80));
+  await runFromStep(targetStep);
+}
+
+scrubTrack.addEventListener('mousedown', function(e) {
+  scrubbing = true;
+  const pct = pctFromEvent(e, this);
+  setProgress(pct);
+  document.getElementById('step-counter').textContent =
+    Math.round(pct / 100 * (STEPS.length - 1)) + ' / ' + STEPS.length;
+  e.preventDefault();
+});
+window.addEventListener('mousemove', function(e) {
+  if (!scrubbing) return;
+  const pct = pctFromEvent(e, scrubTrack);
+  setProgress(pct);
+  document.getElementById('step-counter').textContent =
+    Math.round(pct / 100 * (STEPS.length - 1)) + ' / ' + STEPS.length;
+});
+window.addEventListener('mouseup', async function(e) {
+  if (!scrubbing) return;
+  scrubbing = false;
+  await doScrubJump(pctFromEvent(e, scrubTrack));
+});
+// Touch
+scrubTrack.addEventListener('touchstart', function(e) {
+  scrubbing = true;
+  setProgress(pctFromEvent(e, this));
+  e.preventDefault();
+}, {passive: false});
+window.addEventListener('touchmove', function(e) {
+  if (!scrubbing) return;
+  setProgress(pctFromEvent(e, scrubTrack));
+}, {passive: true});
+window.addEventListener('touchend', async function(e) {
+  if (!scrubbing) return;
+  scrubbing = false;
+  const pct = parseFloat(document.getElementById('progress-fill').style.width) || 0;
+  await doScrubJump(pct);
+}, {passive: true});
+
+// Watermark (JS-injected to avoid email obfuscation)
+(function(){var w=document.getElementById('watermark');if(w)w.textContent=['wukun2005','gmail.com'].join('\u0040');})();
+
+</script>
+</body>
+</html>
