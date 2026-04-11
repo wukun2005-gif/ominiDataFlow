@@ -6,7 +6,7 @@
 
 ## 0. 产品 Demo 演示
 点击下方链接查看产品演示视频：
-[OmniDataFlow Demo 视频 (OneDrive)](https://1drv.ms/v/c/203d7a34c28a5187/IQBq3_JUGkXCQrhmnIIWUB-kAQPtbCt4OeQWnMNPFfeN87I?e=b2nBXj)
+[OmniDataFlow Demo 视频](https://1drv.ms/v/c/203d7a34c28a5187/IQBq3_JUGkXCQrhmnIIWUB-kAQPtbCt4OeQWnMNPFfeN87I?e=b2nBXj)
 
 ---
 
